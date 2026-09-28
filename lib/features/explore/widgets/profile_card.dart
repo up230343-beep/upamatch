@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/pill_chip.dart';
+import '../../../data/api/fotos_service.dart';
 import '../../../data/models/profile.dart';
 
 /// Tarjeta grande de perfil de la pantalla "Explorar".
@@ -34,27 +35,54 @@ class ProfileCard extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(22),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _PhotoIndicator(count: photoCount, active: activePhoto),
-              const SizedBox(height: 12),
-              _KindBadge(kind: profile.kind),
-              const Expanded(
-                child: Center(
-                  // En pantallas bajas el marcador se encoge en vez de
-                  // apretujar el bloque de información.
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: _PhotoPlaceholder(),
-                  ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Debajo de todo queda el marcador "Pon aquí la foto": se ve
+            // cuando el perfil todavía no tiene foto subida.
+            const Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: _PhotoPlaceholder(),
+              ),
+            ),
+            // La foto del perfil, tapando el marcador. Si el usuario no tiene
+            // foto la API responde 404 y esto no pinta nada.
+            Image.network(
+              FotosService.urlPrincipal(profile.id),
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stack) => const SizedBox.shrink(),
+            ),
+            // Sombra arriba y abajo para que el texto se lea aunque la foto
+            // sea clara. El centro se deja limpio para que se vea la foto.
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0x59000000),
+                    Colors.transparent,
+                    Color(0xD9000000),
+                  ],
+                  stops: [0.0, 0.3, 0.92],
                 ),
               ),
-              _ProfileInfo(profile: profile),
-            ],
-          ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _PhotoIndicator(count: photoCount, active: activePhoto),
+                  const SizedBox(height: 12),
+                  _KindBadge(kind: profile.kind),
+                  const Spacer(),
+                  _ProfileInfo(profile: profile),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

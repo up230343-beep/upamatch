@@ -3,9 +3,34 @@
 Implementación en Flutter de las pantallas de UpaMatch, siguiendo el mockup de
 Figma (*Mockups v2 · 390 × 844 · iPhone 14*).
 
-**Solo interfaz.** No hay llamadas de red, base de datos ni autenticación: los
-datos vienen de `lib/data/mock/mock_data.dart`. Los puntos donde hay que
-enchufar el backend están marcados con `TODO(backend)`.
+Los textos (nombres, edades, intereses, chats) siguen viniendo de
+`lib/data/mock/mock_data.dart`. **Las fotos ya no**: salen de la API de fotos,
+que las guarda en Azure Blob Storage. El resto de puntos donde falta backend
+están marcados con `TODO(backend)`.
+
+## Fotos: conexión con la API
+
+La API de fotos vive en `practica de equipo/FotosApi` (ASP.NET Core). Hay que
+tenerla corriendo en `http://localhost:5250` para que se vean las fotos.
+
+| Archivo | Qué hace |
+| --- | --- |
+| `lib/data/api/api_config.dart` | La dirección de la API y el usuario de la sesión. **Es lo único que hay que cambiar** si la API cambia de dirección. |
+| `lib/data/api/fotos_service.dart` | Las llamadas: listar, subir, reemplazar y eliminar. |
+| `lib/data/models/foto.dart` | Lo que devuelve la API: `nombre` y `url`. |
+| `lib/features/profile/widgets/mis_fotos.dart` | La sección "Mis fotos" del perfil. |
+
+Cada usuario puede tener hasta **5 fotos**: `principal`, `foto1`, `foto2`,
+`foto3` y `foto4`. No hace falta tenerlas todas — solo se pintan las que
+existen, y el botón "+" aparece mientras quede espacio. La `principal` es la
+que se ve en la tarjeta de Explorar y en el avatar del perfil.
+
+Si la API está apagada, la app no se rompe: la galería enseña "No se pudo
+conectar con el servidor" con un botón de reintentar, y las fotos se quedan
+con su marcador.
+
+**Pendiente**: `ApiConfig.usuarioId` está fijo en `'max'` porque todavía no hay
+login. Cuando lo haya, ese valor sale de la sesión.
 
 ## Pantallas
 
@@ -109,8 +134,8 @@ Busca `TODO(backend)` en el proyecto. Resumen:
 | `login_screen.dart`          | Login con correo/contraseña, login social, recuperar clave  |
 | `create_account_screen.dart` | Guardar el paso 2 del registro y avanzar al paso 3          |
 | `explore_screen.dart`        | Cargar perfiles, aplicar el filtro, enviar like / pasar     |
-| `profile_card.dart`          | Pintar la foto real cuando llegue `profile.photoUrl`        |
-| `avatar_circle.dart`         | Igual para todos los avatares de la app                     |
+| ~~`profile_card.dart`~~      | ~~Pintar la foto real~~ — hecho, sale de la API de fotos     |
+| ~~`avatar_circle.dart`~~     | ~~Igual para los avatares~~ — hecho para el avatar del perfil |
 | `chats_screen.dart`          | Listar conversaciones, búsqueda real y abrir el detalle     |
 | `profile_screen.dart`        | Datos del usuario, contadores, ajustes y cerrar sesión      |
 | `likes_screen.dart`          | Listar a quienes dieron like                                |
