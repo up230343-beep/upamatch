@@ -22,7 +22,6 @@ abstract final class AppColors {
   static const Color textSecondary = Color(0xFF706C86);
   static const Color textMuted = Color(0xFF9A96AD);
   static const Color textOnDark = Color(0xFFFFFFFF);
-  static const Color textOnDarkMuted = Color(0xE6FFFFFF);
 
   // Acentos
   static const Color dark = Color(0xFF231D3A);

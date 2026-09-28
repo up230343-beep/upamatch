@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/phone_chrome.dart';
-import '../../data/mock/mock_data.dart';
 import '../chats/chats_screen.dart';
 import '../explore/explore_screen.dart';
 import '../likes/likes_screen.dart';
@@ -45,7 +44,7 @@ class _MainShellState extends State<MainShell> {
           ),
           MainBottomNav(
             currentIndex: _index,
-            likesBadge: MockData.likesReceived.length,
+            likesBadge: 3,
             onTap: (index) => setState(() => _index = index),
           ),
           const ColoredBox(

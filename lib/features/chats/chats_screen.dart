@@ -9,7 +9,6 @@ import '../../core/widgets/avatar_strip.dart';
 import '../../core/widgets/circle_icon_button.dart';
 import '../../data/mock/mock_data.dart';
 import '../../data/models/conversation.dart';
-import '../../routes/app_routes.dart';
 
 /// 04 · Chats
 class ChatsScreen extends StatefulWidget {
@@ -110,10 +109,8 @@ class _ChatsScreenState extends State<ChatsScreen> {
               separatorBuilder: (_, _) => const SizedBox(height: 10),
               itemBuilder: (context, index) => _ConversationTile(
                 conversation: conversations[index],
-                onTap: () => Navigator.of(context).pushNamed(
-                  AppRoutes.chatDetail,
-                  arguments: conversations[index],
-                ),
+                // TODO(backend): abrir el detalle de la conversación.
+                onTap: () {},
               ),
             ),
         ],
