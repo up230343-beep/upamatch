@@ -25,13 +25,28 @@ Añadidas después, con el mismo estilo visual (no están en Figma):
 | Perfil  | 05       | `lib/features/profile/profile_screen.dart`     |
 | Likes   | —        | `lib/features/likes/likes_screen.dart`         |
 
+Pantallas que se abren encima del shell (ruta propia):
+
+| Ruta / cómo se abre | Pantalla              | Archivo                                                  |
+| ------------------- | --------------------- | -------------------------------------------------------- |
+| `/chat`             | 06 Detalle de chat    | `lib/features/chats/chat_detail_screen.dart`              |
+| diálogo             | 07 ¡Es un match!      | `lib/features/match/match_dialog.dart`                    |
+| `/perfil-detalle`   | 08 Detalle de perfil  | `lib/features/profile_detail/profile_detail_screen.dart`  |
+| hoja inferior       | 09 Filtros            | `lib/features/explore/widgets/filters_sheet.dart`         |
+
+Flujo sin backend: en Explorar, pasar o dar like avanza al siguiente perfil.
+Si das like a alguien que está en `MockData.likesReceived` (Luna, Sofía, Nina)
+sale el match, y "Enviar mensaje" abre su chat. La pestaña Likes lista a esos
+perfiles; al tocar uno se abre su detalle y el like de vuelta también es match.
+
 Explorar, Likes, Chats y Perfil son pestañas de `MainShell`
 (`lib/features/shell/main_shell.dart`): se entra por `/inicio` y se cambia con
 la barra inferior. La barra de estado, la barra de navegación y el home
 indicator los dibuja el shell, no cada pantalla.
 
-**Likes** todavía no existe en Figma; se dejó un estado vacío con el mismo
-estilo para que la pestaña no quede muerta. Cuando haya diseño, se sustituye.
+**Likes** todavía no existe en Figma; se hizo con el mismo estilo (rejilla de
+tarjetas moradas) y muestra un estado vacío si no hay likes. Cuando haya
+diseño, se sustituye.
 
 El botón principal del login y del registro navega a la siguiente pantalla,
 para poder recorrer el flujo completo sin backend.
@@ -99,6 +114,25 @@ lib/
 
 Regla: ningún color ni tamaño suelto dentro de las pantallas. Todo sale de
 `AppColors`, `AppTextStyles` y `AppTheme`.
+
+## Cómo agregar una pantalla
+
+1. **Modelo** en `lib/data/models/` si la pantalla necesita datos nuevos.
+2. **Datos de ejemplo** en `MockData` (`lib/data/mock/mock_data.dart`).
+3. **Pantalla** en `lib/features/<área>/`. Solo colores, textos y medidas de
+   `AppColors`, `AppTextStyles` y `AppTheme`; reutiliza lo de `core/widgets/`.
+4. **Cómo se abre**:
+   - Pestaña → agrégala al `IndexedStack` de `MainShell` y a `MainBottomNav`.
+   - Pantalla encima → ruta en `AppRoutes` y `Navigator.pushNamed`. Si recibe
+     datos, van en `arguments`. Estas pantallas dibujan su propio
+     `MockStatusBar` y `HomeIndicator`.
+   - Hoja inferior o diálogo → una función `showXxx(context)` en el mismo
+     archivo (ver `filters_sheet.dart` y `match_dialog.dart`).
+5. **Test** en `test/widget_test.dart` y una fila en las tablas de arriba.
+
+Ojo: las rutas de `AppRoutes.routes` son `MaterialPageRoute<dynamic>`. Para
+leer lo que devuelve una pantalla usa `pushNamed(...)` y comprueba el tipo
+(`if (result is SwipeDecision)`); `pushNamed<SwipeDecision>` truena.
 
 ## Qué le toca al backend
 
