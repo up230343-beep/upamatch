@@ -1,26 +1,26 @@
 import 'package:flutter/material.dart';
 
 import '../../core/abrir_instagram.dart';
-import '../../core/instagram.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/avatar_circle.dart';
-import '../../data/mis_matches.dart';
-import '../../data/mock/mock_data.dart';
-import '../../data/models/like.dart';
-import '../../data/models/profile.dart';
+import '../../core/widgets/pill_chip.dart';
+import '../../data/mis_solicitudes.dart';
+import '../../data/models/solicitud.dart';
 import '../../data/models/swipe_decision.dart';
 import '../../routes/app_routes.dart';
 import '../match/match_dialog.dart';
 
-/// Pestaña "Likes": tus matches (con su Instagram) y quienes dieron like a
-/// tu perfil.
+/// Pestaña "Likes": tus solicitudes, en dos listas.
 ///
-/// Tocar una tarjeta abre su perfil; si le das like de vuelta, es match y
-/// pasa a "Mis matches".
+/// - **Pendientes**: te dieron "sí" y no has contestado. Sin Instagram.
+/// - **Aceptadas**: ya son match. Con el botón para abrir su Instagram.
 ///
-/// TODO(backend): listar los likes reales.
+/// Tocar una abre su perfil completo ([AppRoutes.solicitudDetalle]); en las
+/// pendientes ahí se contesta "sí" o "no".
+///
+/// Los datos salen de la API a través de [MisSolicitudes].
 class LikesScreen extends StatefulWidget {
   const LikesScreen({super.key});
 
@@ -29,202 +29,263 @@ class LikesScreen extends StatefulWidget {
 }
 
 class _LikesScreenState extends State<LikesScreen> {
-  /// Likes que ya respondiste (match o pasar) y salen de la lista.
-  final Set<String> _answered = {};
+  bool _verAceptadas = false;
 
-  List<({Like like, Profile profile})> get _likes => [
-    for (final like in MockData.likesReceived)
-      if (!_answered.contains(like.profileId) &&
-          !MisMatches.instancia.contiene(like.profileId))
-        if (MockData.profileById(like.profileId) case final profile?)
-          (like: like, profile: profile),
-  ];
-
-  Future<void> _open(Profile profile) async {
+  Future<void> _abrir(Solicitud solicitud) async {
     final decision = await Navigator.of(context).pushNamed(
-      AppRoutes.profileDetail,
-      arguments: profile,
+      AppRoutes.solicitudDetalle,
+      arguments: solicitud,
     );
     if (decision is! SwipeDecision || !mounted) return;
-    setState(() => _answered.add(profile.id));
-    await sendDecision(context, profile, decision);
+
+    // Si es "sí", sendDecision enseña el match y la pasa a aceptadas.
+    await sendDecision(context, solicitud.toProfile(), decision);
   }
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: MisMatches.instancia,
-      builder: (context, _) {
-        final likes = _likes;
-        final matches = MisMatches.instancia.perfiles;
+    final store = MisSolicitudes.instancia;
 
-        return CustomScrollView(
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppTheme.pagePadding,
-              ),
-              sliver: SliverList.list(
-                children: [
-                  const Text(
-                    'Likes',
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.title,
-                  ),
-                  if (matches.isNotEmpty) ...[
-                    const SizedBox(height: 16),
+    return ListenableBuilder(
+      listenable: store,
+      builder: (context, _) {
+        final pendientes = store.pendientes;
+        final aceptadas = store.aceptadas;
+        final lista = _verAceptadas ? aceptadas : pendientes;
+
+        return RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: store.cargar,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppTheme.pagePadding,
+                ),
+                sliver: SliverList.list(
+                  children: [
                     const Text(
-                      'Mis matches',
-                      style: AppTextStyles.sectionTitle,
+                      'Solicitudes',
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.title,
                     ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Escríbeles por Instagram.',
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        PillChip.filter(
+                          label: 'Pendientes (${pendientes.length})',
+                          selected: !_verAceptadas,
+                          onTap: () => setState(() => _verAceptadas = false),
+                        ),
+                        const SizedBox(width: 8),
+                        PillChip.filter(
+                          label: 'Aceptadas (${aceptadas.length})',
+                          selected: _verAceptadas,
+                          onTap: () => setState(() => _verAceptadas = true),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      _verAceptadas
+                          ? 'Ya son match: escríbeles por Instagram.'
+                          : pendientes.length == 1
+                              ? 'A 1 perfil le gustas'
+                              : 'A ${pendientes.length} perfiles les gustas',
                       style: AppTextStyles.bodyMuted,
                     ),
                     const SizedBox(height: 12),
-                    for (final perfil in matches) ...[
-                      _MatchTile(profile: perfil),
-                      const SizedBox(height: 10),
-                    ],
                   ],
-                  const SizedBox(height: 16),
-                  const Text('Les gustas', style: AppTextStyles.sectionTitle),
-                  if (likes.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      likes.length == 1
-                          ? 'A 1 perfil le gustas'
-                          : 'A ${likes.length} perfiles les gustas',
-                      style: AppTextStyles.bodyMuted,
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                ],
-              ),
-            ),
-            if (likes.isEmpty)
-              const SliverToBoxAdapter(child: _EmptyLikes())
-            else
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppTheme.pagePadding,
-                  0,
-                  AppTheme.pagePadding,
-                  16,
                 ),
-                sliver: SliverGrid.builder(
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        mainAxisSpacing: 12,
-                        crossAxisSpacing: 12,
-                        childAspectRatio: 0.78,
-                      ),
-                  itemCount: likes.length,
-                  itemBuilder: (context, index) => _LikeCard(
-                    like: likes[index].like,
-                    profile: likes[index].profile,
-                    onTap: () => _open(likes[index].profile),
+              ),
+              if (lista.isEmpty)
+                SliverToBoxAdapter(
+                  child: _estadoVacio(store),
+                )
+              else if (_verAceptadas)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppTheme.pagePadding,
+                    0,
+                    AppTheme.pagePadding,
+                    16,
+                  ),
+                  sliver: SliverList.separated(
+                    itemCount: aceptadas.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
+                    itemBuilder: (context, index) => _MatchTile(
+                      solicitud: aceptadas[index],
+                      onTap: () => _abrir(aceptadas[index]),
+                    ),
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppTheme.pagePadding,
+                    0,
+                    AppTheme.pagePadding,
+                    16,
+                  ),
+                  sliver: SliverGrid.builder(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      childAspectRatio: 0.78,
+                    ),
+                    itemCount: pendientes.length,
+                    itemBuilder: (context, index) => _LikeCard(
+                      solicitud: pendientes[index],
+                      onTap: () => _abrir(pendientes[index]),
+                    ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         );
       },
     );
   }
+
+  Widget _estadoVacio(MisSolicitudes store) {
+    if (!store.cargado && store.error == null) {
+      return const Padding(
+        padding: EdgeInsets.all(40),
+        child: Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      );
+    }
+    if (store.error != null) {
+      return _Vacio(
+        icono: Icons.wifi_off_rounded,
+        titulo: 'No se pudieron cargar',
+        texto: store.error!,
+        accion: 'Reintentar',
+        onAccion: store.cargar,
+      );
+    }
+    return _verAceptadas
+        ? const _Vacio(
+            icono: Icons.favorite_rounded,
+            titulo: 'Todavía no tienes matches',
+            texto: 'Cuando tú y alguien más se den "sí", aparecerá aquí con su '
+                'Instagram.',
+          )
+        : const _Vacio(
+            icono: Icons.favorite_rounded,
+            titulo: 'Aún no hay likes nuevos',
+            texto: 'Cuando alguien dé like a tu perfil aparecerá aquí.',
+          );
+  }
 }
 
-/// Un match: foto, nombre, su @ de Instagram y el botón para abrirlo.
+/// Una solicitud aceptada: foto, nombre, su @ de Instagram y el botón para
+/// abrirlo.
 class _MatchTile extends StatelessWidget {
-  const _MatchTile({required this.profile});
+  const _MatchTile({required this.solicitud, required this.onTap});
 
-  final Profile profile;
+  final Solicitud solicitud;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
+    final link = solicitud.instagram;
+
+    return Material(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+      child: InkWell(
         borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          AvatarCircle(size: 48, photoUrl: profile.photoUrl),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  profile.headline,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.body.copyWith(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  Instagram.usuario(profile.instagram),
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.bodyMuted,
-                ),
-              ],
-            ),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+            border: Border.all(color: AppColors.border),
           ),
-          const SizedBox(width: 8),
-          Material(
-            color: AppColors.surfaceMuted,
-            borderRadius: BorderRadius.circular(AppTheme.radiusField),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(AppTheme.radiusField),
-              onTap: () => abrirInstagram(context, profile.instagram),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 9,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+          child: Row(
+            children: [
+              AvatarCircle(size: 48, photoUrl: solicitud.fotoUrl),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(
-                      Icons.camera_alt_outlined,
-                      size: 17,
-                      color: AppColors.primary,
-                    ),
-                    const SizedBox(width: 6),
                     Text(
-                      'Instagram',
-                      style: AppTextStyles.link.copyWith(fontSize: 13),
+                      solicitud.titulo,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.body.copyWith(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      solicitud.instagramUsuario ?? '',
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.bodyMuted,
                     ),
                   ],
                 ),
               ),
-            ),
+              if (link != null) ...[
+                const SizedBox(width: 8),
+                Material(
+                  color: AppColors.surfaceMuted,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusField),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusField),
+                    onTap: () => abrirInstagram(context, link),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 9,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.camera_alt_outlined,
+                            size: 17,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Instagram',
+                            style: AppTextStyles.link.copyWith(fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
+/// Una solicitud pendiente (tarjeta morada).
 class _LikeCard extends StatelessWidget {
-  const _LikeCard({
-    required this.like,
-    required this.profile,
-    required this.onTap,
-  });
+  const _LikeCard({required this.solicitud, required this.onTap});
 
-  final Like like;
-  final Profile profile;
+  final Solicitud solicitud;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final detalle = [
+      solicitud.tipo.label,
+      if (solicitud.raza.isNotEmpty) solicitud.raza,
+    ].join(' · ');
+
     return Material(
       borderRadius: BorderRadius.circular(AppTheme.radiusCard),
       clipBehavior: Clip.antiAlias,
@@ -241,7 +302,7 @@ class _LikeCard extends StatelessWidget {
                   children: [
                     Flexible(
                       child: Text(
-                        like.time,
+                        solicitud.hace,
                         overflow: TextOverflow.ellipsis,
                         style: AppTextStyles.caption.copyWith(
                           color: AppColors.textOnDarkMuted,
@@ -249,7 +310,7 @@ class _LikeCard extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
-                    if (like.isSuperLike)
+                    if (solicitud.esSuperLike)
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 7,
@@ -285,13 +346,13 @@ class _LikeCard extends StatelessWidget {
                   child: Center(
                     child: AvatarCircle(
                       size: 72,
-                      photoUrl: profile.photoUrl,
+                      photoUrl: solicitud.fotoUrl,
                       showRing: false,
                     ),
                   ),
                 ),
                 Text(
-                  profile.headline,
+                  solicitud.titulo,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 17,
@@ -301,7 +362,7 @@ class _LikeCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${profile.kind.label} · ${profile.breed}',
+                  detalle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTextStyles.caption.copyWith(
@@ -317,8 +378,20 @@ class _LikeCard extends StatelessWidget {
   }
 }
 
-class _EmptyLikes extends StatelessWidget {
-  const _EmptyLikes();
+class _Vacio extends StatelessWidget {
+  const _Vacio({
+    required this.icono,
+    required this.titulo,
+    required this.texto,
+    this.accion,
+    this.onAccion,
+  });
+
+  final IconData icono;
+  final String titulo;
+  final String texto;
+  final String? accion;
+  final VoidCallback? onAccion;
 
   @override
   Widget build(BuildContext context) {
@@ -328,32 +401,36 @@ class _EmptyLikes extends StatelessWidget {
         vertical: 24,
       ),
       child: Column(
-      children: [
-        Container(
-          width: 92,
-          height: 92,
-          decoration: const BoxDecoration(
-            color: AppColors.surfaceMuted,
-            shape: BoxShape.circle,
+        children: [
+          Container(
+            width: 92,
+            height: 92,
+            decoration: const BoxDecoration(
+              color: AppColors.surfaceMuted,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icono, size: 40, color: AppColors.primaryLight),
           ),
-          child: const Icon(
-            Icons.favorite_rounded,
-            size: 40,
-            color: AppColors.primaryLight,
+          const SizedBox(height: 18),
+          Text(
+            titulo,
+            textAlign: TextAlign.center,
+            style: AppTextStyles.sectionTitle,
           ),
-        ),
-        const SizedBox(height: 18),
-        const Text(
-          'Aún no hay likes nuevos',
-          style: AppTextStyles.sectionTitle,
-        ),
-        const SizedBox(height: 6),
-        const Text(
-          'Cuando alguien dé like a tu perfil aparecerá aquí.',
-          textAlign: TextAlign.center,
-          style: AppTextStyles.bodyMuted,
-        ),
-      ],
+          const SizedBox(height: 6),
+          Text(
+            texto,
+            textAlign: TextAlign.center,
+            style: AppTextStyles.bodyMuted,
+          ),
+          if (accion != null && onAccion != null) ...[
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: onAccion,
+              child: Text(accion!, style: AppTextStyles.link),
+            ),
+          ],
+        ],
       ),
     );
   }

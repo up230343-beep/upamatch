@@ -6,25 +6,42 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/avatar_circle.dart';
-import '../../data/mis_matches.dart';
-import '../../data/mock/mock_data.dart';
+import '../../data/api/api_config.dart';
+import '../../data/api/fotos_service.dart';
+import '../../data/api/match_service.dart';
+import '../../data/mis_solicitudes.dart';
 import '../../data/models/profile.dart';
 import '../../data/models/swipe_decision.dart';
 
-/// Aplica un like / super like / pasar y, si esa persona ya te había dado
-/// like, muestra el match.
+/// Guarda el "sí" (like / super like) o el "no" (pasar) en la API. Si con
+/// ese "sí" se completa el match, le avisa a quien lo acaba de completar con
+/// el diálogo de match (con el Instagram que manda la API).
 ///
-/// TODO(backend): enviar la decisión al API; su respuesta dice si hubo match.
-Future<void> sendDecision(
+/// Devuelve `false` si no se pudo guardar (ya enseñó el error), para que la
+/// pantalla regrese el perfil.
+Future<bool> sendDecision(
   BuildContext context,
   Profile profile,
   SwipeDecision decision,
 ) async {
-  if (decision == SwipeDecision.skip) return;
-  if (MockData.likedYou(profile.id)) {
-    MisMatches.instancia.agregar(profile);
-    await showMatchDialog(context, profile);
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final ResultadoCalificacion resultado;
+  try {
+    resultado = await MatchService.calificar(profile.id, decision);
+  } on ApiException catch (e) {
+    messenger?.showSnackBar(SnackBar(content: Text(e.mensaje)));
+    return false;
   }
+
+  final perfil = resultado.perfil;
+  if (resultado.match && perfil != null) {
+    MisSolicitudes.instancia.aceptada(perfil);
+    if (context.mounted) await showMatchDialog(context, perfil.toProfile());
+  } else {
+    // Si era una solicitud pendiente y le diste "no", sale de la lista.
+    MisSolicitudes.instancia.contestada(profile.id);
+  }
+  return true;
 }
 
 /// 07 · ¡Es un match!
@@ -120,7 +137,9 @@ class _MatchView extends StatelessWidget {
                         child: Transform.rotate(
                           angle: -0.12,
                           child: _MatchAvatar(
-                            photoUrl: MockData.currentUser.photoUrl,
+                            photoUrl: FotosService.urlPrincipal(
+                              ApiConfig.usuarioId,
+                            ),
                           ),
                         ),
                       ),

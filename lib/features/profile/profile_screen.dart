@@ -10,6 +10,7 @@ import '../../core/widgets/pill_chip.dart';
 import '../../data/api/api_config.dart';
 import '../../data/api/cuentas_service.dart';
 import '../../data/api/fotos_service.dart';
+import '../../data/mis_solicitudes.dart';
 import '../../data/mock/mock_data.dart';
 import '../../data/models/mascota.dart';
 import '../../data/session/sesion.dart';
@@ -77,6 +78,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _cerrarSesion() async {
     await SesionActual.cerrar();
+    MisSolicitudes.instancia.reiniciar();
     if (!mounted) return;
     Navigator.of(context).pushNamedAndRemoveUntil(
       AppRoutes.login,

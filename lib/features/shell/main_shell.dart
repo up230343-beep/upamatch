@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/phone_chrome.dart';
-import '../../data/mock/mock_data.dart';
+import '../../data/mis_solicitudes.dart';
+import '../../routes/app_routes.dart';
 import '../explore/explore_screen.dart';
 import '../likes/likes_screen.dart';
 import '../profile/profile_screen.dart';
@@ -26,6 +27,24 @@ class _MainShellState extends State<MainShell> {
   late int _index = widget.initialIndex;
 
   @override
+  void initState() {
+    super.initState();
+    // Las solicitudes se piden al entrar: las usan la pestaña y el globito.
+    // Después del primer cuadro, para no avisar a nadie a media construcción.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => MisSolicitudes.instancia.cargar(),
+    );
+  }
+
+  void _cambiarPestana(int index) {
+    // Al abrir solicitudes se actualizan, por si llegó alguna nueva.
+    if (index == AppRoutes.tabLikes && index != _index) {
+      MisSolicitudes.instancia.cargar();
+    }
+    setState(() => _index = index);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Column(
@@ -41,10 +60,13 @@ class _MainShellState extends State<MainShell> {
               ],
             ),
           ),
-          MainBottomNav(
-            currentIndex: _index,
-            likesBadge: MockData.likesReceived.length,
-            onTap: (index) => setState(() => _index = index),
+          ListenableBuilder(
+            listenable: MisSolicitudes.instancia,
+            builder: (context, _) => MainBottomNav(
+              currentIndex: _index,
+              likesBadge: MisSolicitudes.instancia.pendientes.length,
+              onTap: _cambiarPestana,
+            ),
           ),
           const ColoredBox(
             color: AppColors.surface,

@@ -38,6 +38,7 @@ El script SQL idempotente (para verlo o correrlo a mano en SSMS) está en `backe
 | **Mascotas** | UsuarioId (PK/FK 1:1), Nombre, Edad, Tipo, Raza, Ciudad, Descripcion, Instagram, ActualizadoEn | Datos del perfil de mascota; Instagram es obligatorio |
 | **MascotaIntereses** | UsuarioId, Interes | Hasta 8 intereses por mascota |
 | **Likes** | DeUsuarioId, AUsuarioId, EsSuperLike, CreadoEn | Quién le dio "sí" a quién; match si A→B y B→A existen |
+| **Descartes** | DeUsuarioId, AUsuarioId, CreadoEn | Quién le dio "no" a quién. Con Likes queda guardada cada calificación, para no volver a mostrar el perfil |
 
 ## Contraseñas
 
@@ -57,8 +58,24 @@ El login responde el **mismo mensaje** y **tarda lo mismo** exista o no el corre
 | GET | `/api/auth/yo` | sí | `{usuarioId, correo, tienePerfil}`; la app lo usa al abrir para verificar sesión viva | 401 |
 | GET | `/api/perfil` | sí | Devuelve datos de la mascota | 404 si aún no completó el paso 2 |
 | PUT | `/api/perfil` | sí | Crea o actualiza la mascota (Instagram obligatorio) y devuelve lo guardado | 400 con el mensaje del primer error de validación |
+| GET | `/api/match/perfiles?tipo=&edadMin=&edadMax=&limite=20` | sí | Perfiles que todavía no calificaste (nunca el tuyo). **Sin Instagram** | — |
+| POST | `/api/match/calificar` | sí | Guarda el "sí" o el "no": `{usuarioId, si, esSuperLike}`. Responde `{match, perfil?}`; si es match, `perfil` trae el Instagram | 400 si es tu perfil; 404 si no existe |
+| GET | `/api/match/solicitudes` | sí | `{pendientes, aceptadas}`. Solo las aceptadas traen `instagram` | — |
+| GET | `/api/match/solicitudes/{usuarioId}` | sí | Perfil completo de una solicitud (al abrirla). Instagram solo si ya es match | 404 si esa persona no te dio "sí" o ya le dijiste "no" |
 
 **Auth sí**: header `Authorization: Bearer <token>`. Los errores vienen en texto plano, listos para mostrarse.
+
+## Buscar match y solicitudes
+
+`Controllers/MatchController.cs`.
+
+- **Calificar**: el "sí" va a `Likes` y el "no" a `Descartes`. Cada perfil se califica una sola vez; si se manda otra vez, se queda la primera respuesta.
+- **Match**: cuando existen A→B y B→A en `Likes`. La respuesta de `calificar` avisa a quien lo acaba de completar (`match: true` + el perfil con Instagram).
+- **Solicitudes** (siempre desde el punto de vista de quien pregunta):
+  - *pendiente*: el otro te dio "sí" y tú no has contestado.
+  - *aceptada*: los dos se dieron "sí".
+  - Si le dijiste "no", no sale en ninguna lista.
+- **Instagram**: el servidor **no lo manda** en `perfiles` ni en las pendientes (el campo ni aparece en el JSON). No basta con esconderlo en la app: si viajara en la respuesta, cualquiera podría leerlo.
 
 ## Reglas de validación
 
@@ -88,6 +105,7 @@ O usar Postman / Thunder Client.
 Migraciones actuales:
 - `Inicial`: estructura base de tablas y columnas.
 - `InstagramObligatorio`: hace Instagram NOT NULL (rellena valores vacíos con '' antes de aplicar).
+- `Descartes`: tabla de los "no" al buscar match.
 
 ## Cambiar el modelo
 
@@ -116,6 +134,7 @@ backend/
 ├── UpaMatch.Api/
 │   ├── Controllers/
 │   │   ├── AuthController.cs
+│   │   ├── MatchController.cs
 │   │   └── PerfilController.cs
 │   ├── Models/
 │   ├── Data/

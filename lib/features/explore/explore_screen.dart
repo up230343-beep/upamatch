@@ -7,7 +7,8 @@ import '../../core/widgets/avatar_strip.dart';
 import '../../core/widgets/brand_logo.dart';
 import '../../core/widgets/circle_icon_button.dart';
 import '../../core/widgets/pill_chip.dart';
-import '../../data/mis_matches.dart';
+import '../../data/api/fotos_service.dart' show ApiException;
+import '../../data/api/match_service.dart';
 import '../../data/mock/mock_data.dart';
 import '../../data/models/explore_filters.dart';
 import '../../data/models/profile.dart';
@@ -18,7 +19,10 @@ import 'widgets/filters_sheet.dart';
 import 'widgets/profile_card.dart';
 import 'widgets/swipe_actions.dart';
 
-/// 03 · Explorar perfiles
+/// 03 · Explorar perfiles (buscar match)
+///
+/// Los perfiles salen de la API: solo los que todavía no calificaste y nunca
+/// el tuyo. Cada "sí" o "no" se guarda en la API y el perfil ya no vuelve.
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
 
@@ -32,25 +36,69 @@ class _ExploreScreenState extends State<ExploreScreen> {
   String _filter = MockData.exploreFilters.keys.first;
   ExploreFilters _filters = const ExploreFilters();
 
-  /// Perfiles a los que ya se les dio like o se pasaron en esta sesión.
-  ///
-  /// TODO(backend): el API ya no debería devolverlos.
-  final Set<String> _decided = {};
+  /// Perfiles por ver, en orden. El primero es la tarjeta.
+  List<Profile> _perfiles = const [];
+  bool _cargando = true;
+  String? _error;
 
-  List<Profile> get _queue {
-    final kind = MockData.exploreFilters[_filter];
-    return MockData.profiles
-        .where((p) =>
-            !_decided.contains(p.id) &&
-            !MisMatches.instancia.contiene(p.id) &&
-            (kind == null || p.kind == kind) &&
-            _filters.matches(p))
-        .toList();
+  /// Cuenta las cargas para ignorar respuestas viejas (si cambias de filtro
+  /// mientras carga).
+  int _carga = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargar();
+  }
+
+  Future<void> _cargar() async {
+    final carga = ++_carga;
+    setState(() {
+      _perfiles = const [];
+      _cargando = true;
+      _error = null;
+    });
+
+    try {
+      final perfiles = await MatchService.perfiles(
+        tipo: MockData.exploreFilters[_filter],
+        edadMin: _filters.minAge == ExploreFilters.ageLimitMin
+            ? null
+            : _filters.minAge,
+        edadMax: _filters.maxAge == ExploreFilters.ageLimitMax
+            ? null
+            : _filters.maxAge,
+      );
+      if (!mounted || carga != _carga) return;
+      setState(() {
+        _perfiles = perfiles;
+        _cargando = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted || carga != _carga) return;
+      setState(() {
+        _error = e.mensaje;
+        _cargando = false;
+      });
+    }
   }
 
   Future<void> _decide(Profile profile, SwipeDecision decision) async {
-    setState(() => _decided.add(profile.id));
-    await sendDecision(context, profile, decision);
+    // Se pasa al siguiente de inmediato; si la API falla, regresa.
+    setState(() => _perfiles = [
+          for (final p in _perfiles)
+            if (p.id != profile.id) p,
+        ]);
+
+    final guardado = await sendDecision(context, profile, decision);
+    if (!mounted) return;
+
+    if (!guardado) {
+      setState(() => _perfiles = [profile, ..._perfiles]);
+    } else if (_perfiles.isEmpty && !_cargando) {
+      // Se acabó esta tanda: se pide la siguiente. Si ya no hay, se avisa.
+      await _cargar();
+    }
   }
 
   Future<void> _openDetail(Profile profile) async {
@@ -65,13 +113,53 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   Future<void> _openFilters() async {
     final filters = await showFiltersSheet(context, _filters);
-    if (filters != null) setState(() => _filters = filters);
+    if (filters != null) {
+      setState(() => _filters = filters);
+      await _cargar();
+    }
+  }
+
+  void _cambiarFiltro(String value) {
+    if (value == _filter) return;
+    setState(() => _filter = value);
+    _cargar();
+  }
+
+  /// Lo que va en el lugar de la tarjeta.
+  Widget _contenido(Profile? profile) {
+    if (_cargando) return const _Cargando();
+    if (_error != null) {
+      return _Aviso(
+        icono: Icons.wifi_off_rounded,
+        titulo: 'No se pudieron cargar los perfiles',
+        texto: _error!,
+        accion: 'Reintentar',
+        onAccion: _cargar,
+      );
+    }
+    if (profile == null) {
+      return _Aviso(
+        icono: Icons.pets_rounded,
+        titulo: 'Ya no quedan perfiles por ver',
+        texto: 'Ya calificaste a todos por aquí. Vuelve más tarde o '
+            'cambia los filtros.',
+        accion: 'Buscar de nuevo',
+        onAccion: _cargar,
+      );
+    }
+    return GestureDetector(
+      onTap: () => _openDetail(profile),
+      child: ProfileCard(key: ValueKey(profile.id), profile: profile),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final queue = _queue;
-    final profile = queue.isEmpty ? null : queue.first;
+    final profile = _perfiles.isEmpty ? null : _perfiles.first;
+    final siguientes = [
+      for (final p in _perfiles.skip(1).take(8))
+        NearbyProfile(id: p.id, name: p.name, photoUrl: p.photoUrl),
+    ];
 
     return Column(
       children: [
@@ -80,10 +168,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
           onFilters: _openFilters,
         ),
         const SizedBox(height: 12),
-        _FilterBar(
-          selected: _filter,
-          onChanged: (value) => setState(() => _filter = value),
-        ),
+        _FilterBar(selected: _filter, onChanged: _cambiarFiltro),
         const SizedBox(height: 14),
         Expanded(
           child: LayoutBuilder(
@@ -113,17 +198,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           ),
                           child: SizedBox(
                             height: cardHeight,
-                            child: profile == null
-                                ? _NoMoreProfiles(
-                                    onRestart: () => setState(_decided.clear),
-                                  )
-                                : GestureDetector(
-                                    onTap: () => _openDetail(profile),
-                                    child: ProfileCard(
-                                      key: ValueKey(profile.id),
-                                      profile: profile,
-                                    ),
-                                  ),
+                            child: _contenido(profile),
                           ),
                         ),
                         if (profile != null)
@@ -135,16 +210,22 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           ),
                       ],
                     ),
-                    const SizedBox(height: 22),
-                    AvatarStrip(
-                      title: 'Nuevos cerca de ti',
-                      profiles: MockData.nearby,
-                      onAction: () {},
-                      onTapProfile: (nearby) {
-                        final match = MockData.profileById(nearby.id);
-                        if (match != null) _openDetail(match);
-                      },
-                    ),
+                    if (siguientes.isNotEmpty) ...[
+                      const SizedBox(height: 22),
+                      AvatarStrip(
+                        title: 'Nuevos cerca de ti',
+                        profiles: siguientes,
+                        actionLabel: '',
+                        onTapProfile: (nearby) {
+                          for (final p in _perfiles) {
+                            if (p.id == nearby.id) {
+                              _openDetail(p);
+                              return;
+                            }
+                          }
+                        },
+                      ),
+                    ],
                     const SizedBox(height: 16),
                   ],
                 ),
@@ -157,11 +238,40 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 }
 
-/// Se acabaron los perfiles con el filtro actual.
-class _NoMoreProfiles extends StatelessWidget {
-  const _NoMoreProfiles({required this.onRestart});
+class _Cargando extends StatelessWidget {
+  const _Cargando();
 
-  final VoidCallback onRestart;
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      ),
+    );
+  }
+}
+
+/// Aviso en el lugar de la tarjeta: se acabaron los perfiles o falló la
+/// carga.
+class _Aviso extends StatelessWidget {
+  const _Aviso({
+    required this.icono,
+    required this.titulo,
+    required this.texto,
+    required this.accion,
+    required this.onAccion,
+  });
+
+  final IconData icono;
+  final String titulo;
+  final String texto;
+  final String accion;
+  final VoidCallback onAccion;
 
   @override
   Widget build(BuildContext context) {
@@ -182,28 +292,24 @@ class _NoMoreProfiles extends StatelessWidget {
               color: AppColors.surfaceMuted,
               shape: BoxShape.circle,
             ),
-            child: const Icon(
-              Icons.pets_rounded,
-              size: 36,
-              color: AppColors.primaryLight,
-            ),
+            child: Icon(icono, size: 36, color: AppColors.primaryLight),
           ),
           const SizedBox(height: 16),
-          const Text(
-            'Ya viste a todos por aquí',
+          Text(
+            titulo,
             textAlign: TextAlign.center,
             style: AppTextStyles.sectionTitle,
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Cambia los filtros o vuelve a ver los perfiles que pasaste.',
+          Text(
+            texto,
             textAlign: TextAlign.center,
             style: AppTextStyles.bodyMuted,
           ),
           const SizedBox(height: 18),
           TextButton(
-            onPressed: onRestart,
-            child: const Text('Volver a empezar', style: AppTextStyles.link),
+            onPressed: onAccion,
+            child: Text(accion, style: AppTextStyles.link),
           ),
         ],
       ),

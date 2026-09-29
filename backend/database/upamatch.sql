@@ -129,3 +129,39 @@ END;
 COMMIT;
 GO
 
+
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260929170000_Descartes'
+)
+BEGIN
+    CREATE TABLE [Descartes] (
+        [DeUsuarioId] uniqueidentifier NOT NULL,
+        [AUsuarioId] uniqueidentifier NOT NULL,
+        [CreadoEn] datetime2 NOT NULL,
+        CONSTRAINT [PK_Descartes] PRIMARY KEY ([DeUsuarioId], [AUsuarioId]),
+        CONSTRAINT [FK_Descartes_Usuarios_AUsuarioId] FOREIGN KEY ([AUsuarioId]) REFERENCES [Usuarios] ([Id]),
+        CONSTRAINT [FK_Descartes_Usuarios_DeUsuarioId] FOREIGN KEY ([DeUsuarioId]) REFERENCES [Usuarios] ([Id]) ON DELETE CASCADE
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260929170000_Descartes'
+)
+BEGIN
+    CREATE INDEX [IX_Descartes_AUsuarioId] ON [Descartes] ([AUsuarioId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260929170000_Descartes'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20260929170000_Descartes', N'10.0.12');
+END;
+
+COMMIT;
+GO

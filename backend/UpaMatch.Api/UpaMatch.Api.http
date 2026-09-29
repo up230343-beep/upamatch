@@ -42,3 +42,33 @@ Content-Type: application/json
 ### Ver mi perfil
 GET {{api}}/api/perfil
 Authorization: Bearer {{token}}
+
+### Buscar match: perfiles que no has calificado (sin Instagram)
+GET {{api}}/api/match/perfiles?limite=20
+Authorization: Bearer {{token}}
+
+### Buscar match: solo perros de 1 a 5 años
+GET {{api}}/api/match/perfiles?tipo=perro&edadMin=1&edadMax=5
+Authorization: Bearer {{token}}
+
+### Calificar: "sí" (pon el usuarioId de un perfil de la lista)
+POST {{api}}/api/match/calificar
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "usuarioId": "00000000-0000-0000-0000-000000000000", "si": true }
+
+### Calificar: "no"
+POST {{api}}/api/match/calificar
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "usuarioId": "00000000-0000-0000-0000-000000000000", "si": false }
+
+### Solicitudes: pendientes (sin Instagram) y aceptadas (con Instagram)
+GET {{api}}/api/match/solicitudes
+Authorization: Bearer {{token}}
+
+### Perfil completo de una solicitud
+GET {{api}}/api/match/solicitudes/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{token}}

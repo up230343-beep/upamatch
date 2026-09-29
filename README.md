@@ -72,7 +72,25 @@ el link completo (https://www.instagram.com/usuario), pero siempre se guarda com
 **Archivos relacionados:**
 - `lib/core/instagram.dart`: funciones `Instagram.validar` y `Instagram.usuario` (mismas reglas que la API)
 - `lib/core/abrir_instagram.dart`: función `abrirInstagram` que abre el link externamente
-- `lib/data/mis_matches.dart`: `MisMatches` (ChangeNotifier singleton) con matches actuales; mock empieza con Rocky; TODO(backend): leer de la tabla Likes
+- `lib/data/mis_solicitudes.dart`: `MisSolicitudes` (ChangeNotifier singleton) con las solicitudes pendientes y aceptadas, leídas de la API
+
+## Buscar match y solicitudes
+
+Usa la API de cuentas (`/api/match`, ver `backend/README.md`).
+
+| Archivo | Qué hace |
+| --- | --- |
+| `lib/data/api/match_service.dart` | Perfiles para buscar match, calificar (sí / no), solicitudes y el perfil de una solicitud |
+| `lib/data/models/solicitud.dart` | `Solicitud` (pendiente o aceptada). `instagram` es `null` mientras no haya match |
+| `lib/data/mis_solicitudes.dart` | `MisSolicitudes` (ChangeNotifier): las dos listas, compartidas por Explorar, la pestaña Likes y el globito de la barra |
+| `lib/features/explore/explore_screen.dart` | Buscar match: perfiles reales, sí / no pasa al siguiente y avisa cuando ya no quedan |
+| `lib/features/likes/likes_screen.dart` | Solicitudes: *Pendientes* y *Aceptadas* |
+| `lib/features/solicitudes/solicitud_detalle_screen.dart` | Perfil completo de una solicitud (fotos, datos, intereses, Instagram). En las pendientes se contesta "Sí" / "No" |
+| `lib/features/match/match_dialog.dart` | `sendDecision`: guarda la calificación y, si es match, enseña el diálogo |
+
+- Cada "sí" o "no" se guarda en la API: ese perfil ya no vuelve a salir (tampoco el tuyo).
+- Cuando dos se dan "sí", la solicitud pasa de pendiente a aceptada y a quien completó el match le sale "¡Es un match!".
+- El Instagram solo se ve en las aceptadas. **La API no lo manda** en buscar match ni en las pendientes.
 
 ## Pantallas
 
@@ -98,14 +116,14 @@ Pantallas que se abren encima del shell (ruta propia):
 | ------------------- | -------------------------------- | -------------------------------------------------------- |
 | diálogo             | 06 ¡Es un match!                 | `lib/features/match/match_dialog.dart`                    |
 | `/perfil-detalle`   | 07 Detalle de perfil             | `lib/features/profile_detail/profile_detail_screen.dart`  |
+| `/solicitud`        | Perfil de una solicitud          | `lib/features/solicitudes/solicitud_detalle_screen.dart`  |
 | `/editar-perfil`    | Editar perfil (reusa el paso 2)  | `lib/features/onboarding/create_account_screen.dart`      |
 | hoja inferior       | 08 Filtros                       | `lib/features/explore/widgets/filters_sheet.dart`         |
 
-Flujo sin backend: en Explorar, pasar o dar like avanza al siguiente perfil.
-Si das like a alguien que está en `MockData.likesReceived` (Luna, Sofía, Nina)
-sale el match, con "Abrir su Instagram" que abre su perfil de Instagram. La pestaña Likes
-muestra "Mis matches" en la parte superior (cada match con botón "Instagram" para abrir su link)
-y "Les gustas" abajo; al tocar un perfil en "Les gustas" se abre su detalle.
+Flujo: en Explorar, pasar ("no") o dar like ("sí") guarda la respuesta en la API y
+avanza al siguiente perfil. Si esa persona ya te había dado "sí", sale el match con
+"Abrir su Instagram". La pestaña Likes muestra tus solicitudes en dos listas,
+*Pendientes* y *Aceptadas* (estas con botón "Instagram"); al tocar una se abre su perfil completo.
 
 Explorar, Likes y Perfil son pestañas de `MainShell`
 (`lib/features/shell/main_shell.dart`): se entra por `/inicio` y se cambia con
@@ -170,11 +188,13 @@ lib/
 │   ├── api/
 │   │   ├── api_config.dart       Dirección de las APIs (cuentas y fotos)
 │   │   ├── cuentas_service.dart  Registro, login, perfil
+│   │   ├── match_service.dart    Buscar match, calificar, solicitudes
 │   │   └── fotos_service.dart    Listar, subir, reemplazar, eliminar fotos
 │   ├── models/
 │   │   ├── profile.dart          Profile, NearbyProfile, ProfileKind
-│   │   └── mascota.dart          Datos de la mascota
-│   ├── mis_matches.dart          Matches actuales (ChangeNotifier)
+│   │   ├── mascota.dart          Datos de la mascota
+│   │   └── solicitud.dart        Solicitud pendiente / aceptada
+│   ├── mis_solicitudes.dart      Solicitudes pendientes y aceptadas (ChangeNotifier)
 │   ├── session/
 │   │   └── sesion.dart           Sesión guardada en el dispositivo
 │   └── mock/mock_data.dart       Contenido de ejemplo
@@ -191,7 +211,8 @@ lib/
     │   └── widgets/
     │       ├── profile_card.dart   Tarjeta grande de perfil
     │       └── swipe_actions.dart  Botones pasar / like / super like
-    ├── likes/likes_screen.dart
+    ├── likes/likes_screen.dart           Solicitudes (pendientes / aceptadas)
+    ├── solicitudes/solicitud_detalle_screen.dart
     └── profile/profile_screen.dart
 ```
 
@@ -225,12 +246,12 @@ Busca `TODO(backend)` en el proyecto. Resumen:
 | ---------------------------- | ---------------------------------------------------------- |
 | `login_screen.dart`          | ~~Login con correo/contraseña~~ — hecho. Falta: recuperar clave |
 | `create_account_screen.dart` | Hecho                                                      |
-| `explore_screen.dart`        | Cargar perfiles, aplicar el filtro, enviar like / pasar     |
+| ~~`explore_screen.dart`~~    | ~~Cargar perfiles, enviar like / pasar~~ — hecho. Falta: filtro por distancia (no hay ubicación) |
 | ~~`profile_card.dart`~~      | ~~Pintar la foto real~~ — hecho, sale de la API de fotos     |
 | ~~`avatar_circle.dart`~~     | ~~Igual para los avatares~~ — hecho para el avatar del perfil |
 | `profile_screen.dart`        | Datos y edición: hecho. Falta: contadores, ajustes          |
-| `likes_screen.dart`          | Listar a quienes dieron like                                |
-| `mis_matches.dart`           | Leer los matches reales de la tabla Likes                   |
+| ~~`likes_screen.dart`~~      | ~~Listar a quienes dieron like~~ — hecho (solicitudes)      |
+| ~~`mis_matches.dart`~~       | ~~Leer los matches reales~~ — ahora `mis_solicitudes.dart`  |
 | `routes/app_routes.dart`     | Hecho                                                      |
 | `data/mock/mock_data.dart`   | Sustituir por la respuesta del API                          |
 

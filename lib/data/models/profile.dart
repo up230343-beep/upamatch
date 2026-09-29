@@ -27,6 +27,7 @@ class Profile {
     required this.instagram,
     this.photoUrl,
     this.isVerified = false,
+    this.city,
   });
 
   final String id;
@@ -45,10 +46,15 @@ class Profile {
   final String? photoUrl;
   final bool isVerified;
 
+  /// Ciudad. Los perfiles que vienen de la API traen ciudad en lugar de
+  /// distancia (todavía no se guarda la ubicación).
+  final String? city;
+
   String get headline => '$name, $age';
 
-  String get subtitle =>
-      '$breed \u00B7 a ${distanceKm.toStringAsFixed(0)} km';
+  String get subtitle => city == null
+      ? '$breed \u00B7 a ${distanceKm.toStringAsFixed(0)} km'
+      : [breed, city!].where((s) => s.isNotEmpty).join(' \u00B7 ');
 }
 
 /// Perfil compacto de la fila "Nuevos cerca de ti".

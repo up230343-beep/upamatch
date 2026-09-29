@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../data/models/mascota.dart';
 import '../data/models/profile.dart';
+import '../data/models/solicitud.dart';
 import '../data/session/sesion.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/register_screen.dart';
 import '../features/onboarding/create_account_screen.dart';
 import '../features/profile_detail/profile_detail_screen.dart';
 import '../features/shell/main_shell.dart';
+import '../features/solicitudes/solicitud_detalle_screen.dart';
 
 /// Rutas con nombre de la app.
 ///
@@ -32,6 +34,10 @@ abstract final class AppRoutes {
 
   /// Recibe el [Profile] como `arguments`; devuelve una `SwipeDecision?`.
   static const String profileDetail = '/perfil-detalle';
+
+  /// Perfil completo de una solicitud. Recibe la `Solicitud` como `arguments`;
+  /// si es pendiente devuelve una `SwipeDecision?` ("sí" o "no").
+  static const String solicitudDetalle = '/solicitud';
 
   /// Adónde entra la app al abrirse según la sesión guardada.
   static String get initial {
@@ -58,6 +64,12 @@ abstract final class AppRoutes {
         profileDetail: _conPerfil(
           (context) => ProfileDetailScreen(
             profile: ModalRoute.of(context)!.settings.arguments! as Profile,
+          ),
+        ),
+        solicitudDetalle: _conPerfil(
+          (context) => SolicitudDetalleScreen(
+            solicitud:
+                ModalRoute.of(context)!.settings.arguments! as Solicitud,
           ),
         ),
       };

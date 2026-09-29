@@ -9,6 +9,7 @@ public class UpaMatchDbContext(DbContextOptions<UpaMatchDbContext> options) : Db
     public DbSet<Mascota> Mascotas => Set<Mascota>();
     public DbSet<MascotaInteres> MascotaIntereses => Set<MascotaInteres>();
     public DbSet<Like> Likes => Set<Like>();
+    public DbSet<Descarte> Descartes => Set<Descarte>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -61,6 +62,20 @@ public class UpaMatchDbContext(DbContextOptions<UpaMatchDbContext> options) : Db
                 .HasForeignKey(l => l.AUsuarioId)
                 .OnDelete(DeleteBehavior.NoAction);
             e.HasIndex(l => l.AUsuarioId);
+        });
+
+        // Igual que Likes, pero para los "no".
+        modelBuilder.Entity<Descarte>(e =>
+        {
+            e.ToTable("Descartes");
+            e.HasKey(d => new { d.DeUsuarioId, d.AUsuarioId });
+            e.HasOne<Usuario>().WithMany()
+                .HasForeignKey(d => d.DeUsuarioId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Usuario>().WithMany()
+                .HasForeignKey(d => d.AUsuarioId)
+                .OnDelete(DeleteBehavior.NoAction);
+            e.HasIndex(d => d.AUsuarioId);
         });
     }
 }
