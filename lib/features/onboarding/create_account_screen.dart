@@ -10,31 +10,123 @@ import '../../core/widgets/phone_chrome.dart';
 import '../../core/widgets/pill_chip.dart';
 import '../../data/mock/mock_data.dart';
 import '../../data/models/profile.dart';
+import '../../core/widgets/instagram_link.dart';
+import '../../data/api/fotos_service.dart';
+import '../../data/api/sesion.dart';
+import '../../data/api/upamatch_service.dart';
 import '../../routes/app_routes.dart';
 
-/// 02 · Crear cuenta (paso 2 de 5)
+/// 02 · Crear cuenta
 class CreateAccountScreen extends StatefulWidget {
   const CreateAccountScreen({super.key});
-
-  static const int step = 2;
-  static const int totalSteps = 5;
 
   @override
   State<CreateAccountScreen> createState() => _CreateAccountScreenState();
 }
 
 class _CreateAccountScreenState extends State<CreateAccountScreen> {
-  final _nameController = TextEditingController(text: 'Max');
-  final _cityController = TextEditingController(text: 'Aguascalientes');
+  final _nameController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _breedController = TextEditingController();
+  final _aboutController = TextEditingController();
+  final _instagramController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
 
   ProfileKind _kind = ProfileKind.perro;
-  String _age = '3 años';
-  final Set<String> _lookingFor = {'Amistad', 'Paseos'};
+  String _age = '1 año';
+  final Set<String> _lookingFor = {'Amistad'};
+  bool _creando = false;
+
+  /// Crea la cuenta y entra a la app.
+  Future<void> _crearCuenta() async {
+    final correo = _emailController.text.trim();
+
+    if (!correo.contains('@') || !correo.contains('.')) {
+      _aviso('Escribe un correo valido.');
+      return;
+    }
+
+    if (_passwordController.text.length < 6) {
+      _aviso('La contrasena debe tener al menos 6 caracteres.');
+      return;
+    }
+
+    if (_nameController.text.trim().length < 2) {
+      _aviso('Ponle nombre a tu mascota.');
+      return;
+    }
+
+    if (_breedController.text.trim().isEmpty) {
+      _aviso('Escribe la raza de tu mascota.');
+      return;
+    }
+
+    if (_cityController.text.trim().isEmpty) {
+      _aviso('Escribe tu ciudad.');
+      return;
+    }
+
+    if (_lookingFor.isEmpty) {
+      _aviso('Elige al menos una opción en "¿Qué buscas?".');
+      return;
+    }
+
+    // El Instagram es como se contactan cuando hay match: sin el, la app no
+    // sirve de nada.
+    if (InstagramLink.limpiar(_instagramController.text) == null) {
+      _aviso('Escribe tu Instagram: es como te van a contactar.');
+      return;
+    }
+
+    setState(() => _creando = true);
+
+    try {
+      final cuenta = await UpaMatchService.registrar(
+        correo: correo,
+        contrasena: _passwordController.text,
+        nombre: _nameController.text.trim(),
+        // La edad se guarda como numero: "3 años" -> 3
+        edad: int.tryParse(_age.split(' ').first) ?? 1,
+        tipo: _kind,
+        raza: _breedController.text.trim(),
+        ciudad: _cityController.text.trim(),
+        sobreMi: _aboutController.text.trim(),
+        intereses: _lookingFor.toList(),
+        instagram: _instagramController.text.trim(),
+      );
+
+      await Sesion.guardar(cuenta.usuarioId, cuenta.nombre);
+
+      if (!mounted) return;
+      Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.home, (_) => false);
+    } on Object catch (e) {
+      if (!mounted) return;
+      _aviso(e is ApiException ? e.mensaje : 'No se pudo conectar con el servidor.');
+    } finally {
+      if (mounted) setState(() => _creando = false);
+    }
+  }
+
+  void _aviso(String mensaje) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensaje),
+        backgroundColor: AppColors.danger,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
 
   @override
   void dispose() {
     _nameController.dispose();
     _cityController.dispose();
+    _breedController.dispose();
+    _aboutController.dispose();
+    _instagramController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -64,31 +156,39 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                         onTap: () => Navigator.of(context).maybePop(),
                       ),
                       const Spacer(),
-                      Flexible(
-                        child: Text(
-                          'Paso ${CreateAccountScreen.step} de '
-                          '${CreateAccountScreen.totalSteps}',
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTextStyles.bodyMuted,
-                        ),
-                      ),
                     ],
-                  ),
-                  const SizedBox(height: 16),
-                  const _StepProgressBar(
-                    step: CreateAccountScreen.step,
-                    total: CreateAccountScreen.totalSteps,
                   ),
                   const SizedBox(height: 20),
                   const Text('Cuéntanos sobre ti', style: AppTextStyles.title),
                   const SizedBox(height: 6),
                   const Text(
-                    'Tu perfil puede ser tuyo o de tu mascota',
+                    'Crea el perfil de tu mascota. Los campos con * son '
+                    'obligatorios.',
                     style: AppTextStyles.bodyMuted,
                   ),
                   const SizedBox(height: 22),
+                  LabeledField(
+                    label: 'Correo electrónico *',
+                    child: AppTextField(
+                      controller: _emailController,
+                      hintText: 'tucorreo@ejemplo.com',
+                      prefixIcon: Icons.mail_outline_rounded,
+                      keyboardType: TextInputType.emailAddress,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  LabeledField(
+                    label: 'Contraseña *',
+                    child: AppTextField(
+                      controller: _passwordController,
+                      hintText: 'Mínimo 6 caracteres',
+                      prefixIcon: Icons.lock_outline_rounded,
+                      obscureText: true,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
                   const Text(
-                    '¿De quién es este perfil?',
+                    '¿Qué mascota es?',
                     style: AppTextStyles.fieldLabel,
                   ),
                   const SizedBox(height: 10),
@@ -98,8 +198,16 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                   ),
                   const SizedBox(height: 20),
                   LabeledField(
-                    label: '¿Cómo se llama?',
+                    label: '¿Cómo se llama? *',
                     child: AppTextField(controller: _nameController),
+                  ),
+                  const SizedBox(height: 14),
+                  LabeledField(
+                    label: 'Raza *',
+                    child: AppTextField(
+                      controller: _breedController,
+                      hintText: 'Golden Retriever, Siamés...',
+                    ),
                   ),
                   const SizedBox(height: 14),
                   Row(
@@ -117,14 +225,36 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: LabeledField(
-                          label: 'Ciudad',
+                          label: 'Ciudad *',
                           child: AppTextField(controller: _cityController),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  const Text('¿Qué buscas?', style: AppTextStyles.fieldLabel),
+                  LabeledField(
+                    label: 'Sobre mí (opcional)',
+                    child: AppTextField(
+                      controller: _aboutController,
+                      hintText: 'Cuéntanos algo de tu mascota',
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  LabeledField(
+                    label: 'Tu Instagram *',
+                    child: AppTextField(
+                      controller: _instagramController,
+                      hintText: 'https://instagram.com/tuusuario',
+                      prefixIcon: Icons.alternate_email_rounded,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Solo se comparte cuando hacen match.',
+                    style: AppTextStyles.caption,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('¿Qué buscas? *', style: AppTextStyles.fieldLabel),
                   const SizedBox(height: 10),
                   Align(
                     alignment: Alignment.centerLeft,
@@ -147,10 +277,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                   ),
                   const SizedBox(height: 24),
                   GradientButton(
-                    label: 'Continuar',
-                    // TODO(backend): guardar el paso y avanzar al paso 3.
-                    onPressed: () =>
-                        Navigator.of(context).pushNamed(AppRoutes.home),
+                    label: _creando ? 'Creando cuenta...' : 'Crear cuenta',
+                    onPressed: _creando ? null : _crearCuenta,
                   ),
                   const SizedBox(height: 18),
                 ],
@@ -199,37 +327,6 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   }
 }
 
-class _StepProgressBar extends StatelessWidget {
-  const _StepProgressBar({required this.step, required this.total});
-
-  final int step;
-  final int total;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(3),
-      child: SizedBox(
-        height: 6,
-        child: Stack(
-          children: [
-            const ColoredBox(
-              color: AppColors.surfaceMuted,
-              child: SizedBox(width: double.infinity, height: 6),
-            ),
-            FractionallySizedBox(
-              widthFactor: step / total,
-              child: const DecoratedBox(
-                decoration: BoxDecoration(gradient: AppColors.primaryGradient),
-                child: SizedBox(height: 6),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _KindGrid extends StatelessWidget {
   const _KindGrid({required this.selected, required this.onChanged});
@@ -238,7 +335,6 @@ class _KindGrid extends StatelessWidget {
   final ValueChanged<ProfileKind> onChanged;
 
   static const Map<ProfileKind, Color> _avatarColors = {
-    ProfileKind.persona: AppColors.avatarBlue,
     ProfileKind.perro: AppColors.avatarTan,
     ProfileKind.gato: AppColors.avatarPeach,
     ProfileKind.otro: AppColors.avatarMint,

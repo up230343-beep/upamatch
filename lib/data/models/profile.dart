@@ -1,6 +1,5 @@
-/// Tipo de perfil que se puede crear o explorar.
+/// Tipo de mascota. La app es solo para mascotas: no hay perfiles de personas.
 enum ProfileKind {
-  persona('Persona', '\u{1F469}'),
   perro('Perro', '\u{1F436}'),
   gato('Gato', '\u{1F431}'),
   otro('Otro', '\u{1F430}');
@@ -9,11 +8,15 @@ enum ProfileKind {
 
   final String label;
   final String emoji;
+
+  /// Convierte el texto que manda la API ("perro") al valor del enum.
+  static ProfileKind desdeTexto(String? texto) => values.firstWhere(
+        (k) => k.name == texto,
+        orElse: () => ProfileKind.otro,
+      );
 }
 
-/// Perfil mostrado en la tarjeta de "Explorar".
-///
-/// TODO(backend): mapear desde el JSON del API con `Profile.fromJson`.
+/// Perfil de una mascota.
 class Profile {
   const Profile({
     required this.id,
@@ -21,9 +24,11 @@ class Profile {
     required this.age,
     required this.kind,
     required this.breed,
+    required this.city,
     required this.distanceKm,
     required this.about,
     required this.tags,
+    this.instagram,
     this.photoUrl,
     this.isVerified = false,
   });
@@ -33,21 +38,79 @@ class Profile {
   final int age;
   final ProfileKind kind;
   final String breed;
+  final String city;
   final double distanceKm;
   final String about;
   final List<String> tags;
 
-  /// Nula en el mockup: la tarjeta muestra el marcador "Pon aquí la foto".
+  /// Link al perfil de Instagram del dueño.
+  ///
+  /// La API solo lo manda cuando ya hay match: es la forma de contactarse,
+  /// asi que antes del match llega nulo a proposito.
+  final String? instagram;
+
   final String? photoUrl;
   final bool isVerified;
 
   String get headline => '$name, $age';
 
-  String get subtitle =>
-      '$breed \u00B7 a ${distanceKm.toStringAsFixed(0)} km';
+  String get subtitle => '$breed · a ${distanceKm.toStringAsFixed(0)} km';
+
+  factory Profile.fromJson(Map<String, dynamic> json) => Profile(
+        id: json['id'].toString(),
+        name: json['nombre'] as String? ?? '',
+        age: (json['edad'] as num?)?.toInt() ?? 0,
+        kind: ProfileKind.desdeTexto(json['tipo'] as String?),
+        breed: json['raza'] as String? ?? '',
+        city: json['ciudad'] as String? ?? '',
+        distanceKm: (json['distanciaKm'] as num?)?.toDouble() ?? 0,
+        about: json['sobreMi'] as String? ?? '',
+        tags: [
+          for (final t in (json['intereses'] as List<dynamic>? ?? []))
+            t.toString(),
+        ],
+        instagram: json['instagram'] as String?,
+        isVerified: json['verificado'] as bool? ?? false,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'nombre': name,
+        'edad': age,
+        'tipo': kind.name,
+        'raza': breed,
+        'ciudad': city,
+        'sobreMi': about,
+        'intereses': tags,
+        'instagram': instagram,
+      };
+
+  Profile copyWith({
+    String? name,
+    int? age,
+    ProfileKind? kind,
+    String? breed,
+    String? city,
+    String? about,
+    List<String>? tags,
+    String? instagram,
+  }) =>
+      Profile(
+        id: id,
+        name: name ?? this.name,
+        age: age ?? this.age,
+        kind: kind ?? this.kind,
+        breed: breed ?? this.breed,
+        city: city ?? this.city,
+        distanceKm: distanceKm,
+        about: about ?? this.about,
+        tags: tags ?? this.tags,
+        instagram: instagram ?? this.instagram,
+        photoUrl: photoUrl,
+        isVerified: isVerified,
+      );
 }
 
-/// Perfil compacto de la fila "Nuevos cerca de ti".
+/// Perfil compacto de las filas de avatares.
 class NearbyProfile {
   const NearbyProfile({required this.id, required this.name, this.photoUrl});
 

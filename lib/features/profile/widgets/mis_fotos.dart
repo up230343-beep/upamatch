@@ -3,7 +3,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
-import '../../../data/api/api_config.dart';
+import '../../../data/api/sesion.dart';
 import '../../../data/api/fotos_service.dart';
 import '../../../data/models/foto.dart';
 
@@ -20,7 +20,7 @@ class MisFotos extends StatefulWidget {
 }
 
 class _MisFotosState extends State<MisFotos> {
-  static const String _usuarioId = ApiConfig.usuarioId;
+  String get _usuarioId => '${Sesion.usuarioId}';
 
   final _picker = ImagePicker();
 

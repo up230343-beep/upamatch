@@ -7,6 +7,9 @@ import '../../core/widgets/app_text_field.dart';
 import '../../core/widgets/brand_logo.dart';
 import '../../core/widgets/gradient_button.dart';
 import '../../core/widgets/phone_chrome.dart';
+import '../../data/api/fotos_service.dart';
+import '../../data/api/sesion.dart';
+import '../../data/api/upamatch_service.dart';
 import '../../routes/app_routes.dart';
 
 /// 01 · Inicio de sesión
@@ -19,8 +22,50 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController(text: 'contrasena');
+  final _passwordController = TextEditingController();
   bool _obscure = true;
+  bool _entrando = false;
+
+  /// Revisa lo que escribio la persona y entra si los datos son correctos.
+  Future<void> _entrar() async {
+    final correo = _emailController.text.trim();
+    final contrasena = _passwordController.text;
+
+    if (!correo.contains('@') || !correo.contains('.')) {
+      _aviso('Escribe un correo valido.');
+      return;
+    }
+
+    if (contrasena.isEmpty) {
+      _aviso('Escribe tu contrasena.');
+      return;
+    }
+
+    setState(() => _entrando = true);
+
+    try {
+      final cuenta = await UpaMatchService.iniciarSesion(correo, contrasena);
+      await Sesion.guardar(cuenta.usuarioId, cuenta.nombre);
+
+      if (!mounted) return;
+      Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.home, (_) => false);
+    } on Object catch (e) {
+      if (!mounted) return;
+      _aviso(e is ApiException ? e.mensaje : 'No se pudo conectar con el servidor.');
+    } finally {
+      if (mounted) setState(() => _entrando = false);
+    }
+  }
+
+  void _aviso(String mensaje) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensaje),
+        backgroundColor: AppColors.danger,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -61,7 +106,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 8),
                         const Text(
-                          'Personas, perros, gatos... todos merecen amor',
+                          'Encuentra amigos para tu mascota',
                           textAlign: TextAlign.center,
                           style: AppTextStyles.bodyMuted,
                         ),
@@ -96,42 +141,31 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         const SizedBox(height: 10),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: GestureDetector(
-                            // TODO(backend): flujo de recuperación de contraseña.
-                            onTap: () {},
-                            child: const Text(
-                              '¿Olvidaste tu contraseña?',
-                              style: AppTextStyles.link,
-                            ),
-                          ),
-                        ),
                         const SizedBox(height: 20),
                         GradientButton(
-                          label: 'Iniciar sesión',
-                          // TODO(backend): autenticar y navegar según respuesta.
-                          onPressed: () => Navigator.of(context)
-                              .pushNamed(AppRoutes.createAccount),
+                          label: _entrando ? 'Entrando...' : 'Iniciar sesión',
+                          onPressed: _entrando ? null : _entrar,
                         ),
-                        const SizedBox(height: 22),
-                        const _OrDivider(),
-                        const SizedBox(height: 18),
-                        const _SocialRow(),
                         const SizedBox(height: 28),
                         Center(
-                          child: Text.rich(
-                            TextSpan(
-                              text: '¿No tienes cuenta? ',
-                              style: AppTextStyles.bodyMuted,
-                              children: [
-                                TextSpan(
-                                  text: 'Regístrate',
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text(
+                                '¿No tienes cuenta? ',
+                                style: AppTextStyles.bodyMuted,
+                              ),
+                              // Abre la pantalla de crear cuenta.
+                              GestureDetector(
+                                onTap: () => Navigator.of(context)
+                                    .pushNamed(AppRoutes.createAccount),
+                                child: Text(
+                                  'Regístrate',
                                   style:
                                       AppTextStyles.link.copyWith(fontSize: 13),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 18),
@@ -190,108 +224,5 @@ class _HeroBlobs extends StatelessWidget {
   }
 }
 
-class _OrDivider extends StatelessWidget {
-  const _OrDivider();
 
-  @override
-  Widget build(BuildContext context) {
-    return const Row(
-      children: [
-        Expanded(child: Divider(color: AppColors.borderStrong, height: 1)),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12),
-          child: Text('o continúa con', style: AppTextStyles.caption),
-        ),
-        Expanded(child: Divider(color: AppColors.borderStrong, height: 1)),
-      ],
-    );
-  }
-}
 
-class _SocialRow extends StatelessWidget {
-  const _SocialRow();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Row(
-      children: [
-        Expanded(
-          child: _SocialButton(
-            label: 'Google',
-            icon: Text(
-              'G',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFFEA4335),
-              ),
-            ),
-          ),
-        ),
-        SizedBox(width: 10),
-        Expanded(
-          child: _SocialButton(
-            label: 'Apple',
-            icon: Icon(Icons.apple, size: 19, color: AppColors.textPrimary),
-          ),
-        ),
-        SizedBox(width: 10),
-        Expanded(
-          child: _SocialButton(
-            label: 'Facebook',
-            icon: Text(
-              'f',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF1877F2),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SocialButton extends StatelessWidget {
-  const _SocialButton({required this.label, required this.icon});
-
-  final String label;
-  final Widget icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(AppTheme.radiusField),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppTheme.radiusField),
-        // TODO(backend): login social.
-        onTap: () {},
-        child: Container(
-          height: 48,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppTheme.radiusField),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(width: 20, child: Center(child: icon)),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.chip.copyWith(fontSize: 12.5),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

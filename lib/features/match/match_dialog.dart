@@ -2,228 +2,140 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
-import '../../core/theme/app_theme.dart';
 import '../../core/widgets/avatar_circle.dart';
-import '../../data/mock/mock_data.dart';
-import '../../data/models/conversation.dart';
+import '../../core/widgets/gradient_button.dart';
+import '../../core/widgets/instagram_link.dart';
+import '../../data/api/fotos_service.dart';
+import '../../data/api/sesion.dart';
 import '../../data/models/profile.dart';
-import '../../data/models/swipe_decision.dart';
-import '../../routes/app_routes.dart';
 
-/// Aplica un like / super like / pasar y, si esa persona ya te había dado
-/// like, muestra el match.
+/// Aviso de "¡Es un match!".
 ///
-/// TODO(backend): enviar la decisión al API; su respuesta dice si hubo match.
-Future<void> sendDecision(
-  BuildContext context,
-  Profile profile,
-  SwipeDecision decision,
-) async {
-  if (decision == SwipeDecision.skip) return;
-  if (MockData.likedYou(profile.id)) {
-    await showMatchDialog(context, profile);
-  }
-}
-
-/// 07 · ¡Es un match!
-///
-/// Se muestra encima de todo cuando das like a alguien que ya te había dado
-/// like. "Enviar mensaje" abre el chat con esa persona.
-Future<void> showMatchDialog(BuildContext context, Profile profile) {
-  final navigator = Navigator.of(context);
-
-  return showGeneralDialog<void>(
+/// Sale encima de todo cuando le das "sí" a una mascota que ya te había dado
+/// "sí" a ti. Aquí es donde por fin aparece el Instagram: es la forma de
+/// contactarse, porque la app no tiene mensajes.
+Future<void> mostrarMatch(BuildContext context, Profile perfil) {
+  return showDialog<void>(
     context: context,
     barrierDismissible: false,
-    barrierColor: AppColors.dark.withValues(alpha: 0.4),
-    transitionDuration: const Duration(milliseconds: 280),
-    transitionBuilder: (context, animation, _, child) => FadeTransition(
-      opacity: animation,
-      child: ScaleTransition(
-        scale: Tween(begin: 0.92, end: 1.0).animate(
-          CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
-        ),
-        child: child,
-      ),
-    ),
-    pageBuilder: (dialogContext, _, _) => _MatchView(
-      profile: profile,
-      onMessage: () {
-        Navigator.of(dialogContext).pop();
-        navigator.pushNamed(
-          AppRoutes.chatDetail,
-          arguments: _conversationWith(profile),
-        );
-      },
-      onKeepExploring: () => Navigator.of(dialogContext).pop(),
-    ),
+    builder: (dialogContext) => _MatchDialog(perfil: perfil),
   );
 }
 
-/// Conversación existente con ese perfil o una nueva, vacía.
-///
-/// TODO(backend): crear la conversación en el API al hacer match.
-Conversation _conversationWith(Profile profile) {
-  for (final conversation in MockData.conversations) {
-    if (conversation.id == profile.id) return conversation;
-  }
-  return Conversation(
-    id: profile.id,
-    name: profile.name,
-    lastMessage: '',
-    time: 'Ahora',
-    photoUrl: profile.photoUrl,
-  );
-}
+class _MatchDialog extends StatelessWidget {
+  const _MatchDialog({required this.perfil});
 
-class _MatchView extends StatelessWidget {
-  const _MatchView({
-    required this.profile,
-    required this.onMessage,
-    required this.onKeepExploring,
-  });
-
-  final Profile profile;
-  final VoidCallback onMessage;
-  final VoidCallback onKeepExploring;
+  final Profile perfil;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 430),
-        child: Material(
-          type: MaterialType.transparency,
-          child: Container(
-            margin: const EdgeInsets.all(AppTheme.pagePadding),
-            padding: const EdgeInsets.fromLTRB(24, 32, 24, 20),
-            decoration: BoxDecoration(
-              gradient: AppColors.cardGradient,
-              borderRadius: BorderRadius.circular(AppTheme.radiusSheet + 4),
+    final miId = '${Sesion.usuarioId}';
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(24, 30, 24, 24),
+        decoration: BoxDecoration(
+          gradient: AppColors.primaryGradient,
+          borderRadius: BorderRadius.circular(26),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '¡Es un match!',
+              style: AppTextStyles.title.copyWith(
+                color: AppColors.textOnDark,
+                fontSize: 26,
+              ),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+            const SizedBox(height: 6),
+            Text(
+              'A ti y a ${perfil.name} se gustaron',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.body.copyWith(
+                color: AppColors.textOnDarkMuted,
+              ),
+            ),
+            const SizedBox(height: 22),
+            // Las dos mascotas, una junto a la otra.
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                AvatarCircle(
+                  size: 84,
+                  photoUrl: FotosService.urlPrincipal(miId),
+                  showRing: false,
+                ),
+                const SizedBox(width: 14),
                 const Icon(
                   Icons.favorite_rounded,
-                  size: 34,
                   color: AppColors.textOnDark,
+                  size: 26,
                 ),
-                const SizedBox(height: 10),
-                const Text(
-                  '¡Es un match!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.6,
-                    color: AppColors.textOnDark,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'A ti y a ${profile.name} se gustaron. '
-                  '¡Salúdale!',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.body.copyWith(
-                    color: AppColors.textOnDarkMuted,
-                  ),
-                ),
-                const SizedBox(height: 28),
-                SizedBox(
-                  height: 110,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Transform.translate(
-                        offset: const Offset(-42, 0),
-                        child: Transform.rotate(
-                          angle: -0.12,
-                          child: _MatchAvatar(
-                            photoUrl: MockData.currentUser.photoUrl,
-                          ),
-                        ),
-                      ),
-                      Transform.translate(
-                        offset: const Offset(42, 0),
-                        child: Transform.rotate(
-                          angle: 0.12,
-                          child: _MatchAvatar(photoUrl: profile.photoUrl),
-                        ),
-                      ),
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: const BoxDecoration(
-                          color: AppColors.surface,
-                          shape: BoxShape.circle,
-                          boxShadow: AppColors.floatingShadow,
-                        ),
-                        child: const Icon(
-                          Icons.favorite_rounded,
-                          size: 20,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 30),
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: Material(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(26),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(26),
-                      onTap: onMessage,
-                      child: Center(
-                        child: Text(
-                          'Enviar mensaje',
-                          style: AppTextStyles.button.copyWith(
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: onKeepExploring,
-                  child: const Text(
-                    'Seguir explorando',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textOnDark,
-                    ),
-                  ),
+                const SizedBox(width: 14),
+                AvatarCircle(
+                  size: 84,
+                  photoUrl: FotosService.urlPrincipal(perfil.id),
+                  showRing: false,
                 ),
               ],
             ),
-          ),
+            const SizedBox(height: 24),
+            _Instagram(instagram: perfil.instagram),
+            const SizedBox(height: 20),
+            GradientButton(
+              label: 'Seguir buscando',
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _MatchAvatar extends StatelessWidget {
-  const _MatchAvatar({this.photoUrl});
+/// El link de Instagram de la otra mascota, que es como se van a contactar.
+class _Instagram extends StatelessWidget {
+  const _Instagram({required this.instagram});
 
-  final String? photoUrl;
+  final String? instagram;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        shape: BoxShape.circle,
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0x26FFFFFF),
+        borderRadius: BorderRadius.circular(16),
       ),
-      child: AvatarCircle(size: 96, photoUrl: photoUrl, showRing: false),
+      child: Column(
+        children: [
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.alternate_email_rounded,
+                size: 17,
+                color: AppColors.textOnDark,
+              ),
+              SizedBox(width: 6),
+              Text(
+                'Contáctense por Instagram',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textOnDark,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          InstagramLink(instagram: instagram, sobreFondoOscuro: true),
+        ],
+      ),
     );
   }
 }

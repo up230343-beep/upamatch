@@ -2,11 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'core/theme/app_theme.dart';
+import 'data/api/sesion.dart';
 import 'routes/app_routes.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
+
+  // Si la persona ya habia iniciado sesion, se entra directo a la app.
+  await Sesion.cargar();
+
   runApp(const UpaMatchApp());
 }
 
@@ -19,7 +24,7 @@ class UpaMatchApp extends StatelessWidget {
       title: 'UpaMatch',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      initialRoute: AppRoutes.initial,
+      initialRoute: Sesion.hayCuenta ? AppRoutes.home : AppRoutes.login,
       routes: AppRoutes.routes,
       builder: (context, child) {
         // El diseño está pensado a 390 px de ancho (iPhone 14). En pantallas

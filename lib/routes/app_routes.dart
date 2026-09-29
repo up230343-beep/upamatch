@@ -6,10 +6,8 @@ import '../features/shell/main_shell.dart';
 
 /// Rutas con nombre de la app.
 ///
-/// Explorar, Likes, Chats y Perfil son pestañas de [MainShell]: se entra por
-/// [home] y se cambia con la barra inferior.
-///
-/// TODO(backend): la ruta inicial debería depender de si hay sesión guardada.
+/// Buscar match, Solicitudes y Mi perfil son pestanas de [MainShell]: se entra
+/// por [home] y se cambia con la barra de abajo.
 abstract final class AppRoutes {
   static const String login = '/';
   static const String createAccount = '/crear-cuenta';
@@ -17,11 +15,10 @@ abstract final class AppRoutes {
 
   static const String initial = login;
 
-  /// Índices de las pestañas de [MainShell].
-  static const int tabExplore = 0;
-  static const int tabLikes = 1;
-  static const int tabChats = 2;
-  static const int tabProfile = 3;
+  /// Indices de las pestanas de [MainShell].
+  static const int tabBuscar = 0;
+  static const int tabSolicitudes = 1;
+  static const int tabPerfil = 2;
 
   static Map<String, WidgetBuilder> get routes => {
         login: (_) => const LoginScreen(),

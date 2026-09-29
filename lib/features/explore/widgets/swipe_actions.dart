@@ -9,12 +9,10 @@ class SwipeActions extends StatelessWidget {
     super.key,
     this.onSkip,
     this.onLike,
-    this.onSuperLike,
   });
 
   final VoidCallback? onSkip;
   final VoidCallback? onLike;
-  final VoidCallback? onSuperLike;
 
   @override
   Widget build(BuildContext context) {
@@ -37,14 +35,6 @@ class SwipeActions extends StatelessWidget {
           iconColor: AppColors.textOnDark,
           gradient: AppColors.primaryGradient,
           onTap: onLike,
-        ),
-        const SizedBox(width: 18),
-        _ActionButton(
-          size: 52,
-          icon: Icons.star_rounded,
-          iconSize: 28,
-          iconColor: AppColors.star,
-          onTap: onSuperLike,
         ),
       ],
     );

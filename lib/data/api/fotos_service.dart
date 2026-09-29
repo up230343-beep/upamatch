@@ -30,6 +30,11 @@ abstract final class FotosService {
   static String urlPrincipal(String usuarioId) =>
       '${ApiConfig.urlBase}/api/fotos/$usuarioId/principal';
 
+  /// Igual que [urlPrincipal] pero forzando que se vuelva a descargar, para
+  /// cuando se acaba de cambiar la foto.
+  static String urlPrincipalFresca(String usuarioId, int version) =>
+      '${urlPrincipal(usuarioId)}?v=$version';
+
   /// Las fotos que tiene el usuario, empezando por la principal.
   /// Si no tiene ninguna, devuelve una lista vacía.
   static Future<List<Foto>> listar(String usuarioId) async {

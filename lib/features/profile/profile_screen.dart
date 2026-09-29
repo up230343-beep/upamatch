@@ -3,66 +3,261 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/widgets/avatar_circle.dart';
-import '../../core/widgets/circle_icon_button.dart';
+import '../../core/widgets/app_text_field.dart';
+import '../../core/widgets/gradient_button.dart';
+import '../../core/widgets/instagram_link.dart';
 import '../../core/widgets/pill_chip.dart';
-import '../../data/api/api_config.dart';
 import '../../data/api/fotos_service.dart';
+import '../../data/api/sesion.dart';
+import '../../data/api/upamatch_service.dart';
 import '../../data/mock/mock_data.dart';
 import '../../data/models/profile.dart';
 import '../../routes/app_routes.dart';
 import 'widgets/mis_fotos.dart';
 
-/// 05 · Perfil
-class ProfileScreen extends StatelessWidget {
+/// Mi perfil: las fotos y los datos de la mascota, todo editable aquí mismo.
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  final _nombre = TextEditingController();
+  final _raza = TextEditingController();
+  final _ciudad = TextEditingController();
+  final _sobreMi = TextEditingController();
+  final _instagram = TextEditingController();
+
+  ProfileKind _tipo = ProfileKind.perro;
+  int _edad = 1;
+  final Set<String> _intereses = {};
+
+  bool _cargando = true;
+  bool _guardando = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargar();
+  }
+
+  @override
+  void dispose() {
+    _nombre.dispose();
+    _raza.dispose();
+    _ciudad.dispose();
+    _sobreMi.dispose();
+    _instagram.dispose();
+    super.dispose();
+  }
+
+  Future<void> _cargar() async {
+    setState(() {
+      _cargando = true;
+      _error = null;
+    });
+
+    try {
+      final perfil = await UpaMatchService.miPerfil(Sesion.usuarioId!);
+      if (!mounted) return;
+
+      setState(() {
+        _nombre.text = perfil.name;
+        _raza.text = perfil.breed;
+        _ciudad.text = perfil.city;
+        _sobreMi.text = perfil.about;
+        _instagram.text = perfil.instagram ?? '';
+        _tipo = perfil.kind;
+        _edad = perfil.age < 1 ? 1 : perfil.age;
+        _intereses
+          ..clear()
+          ..addAll(perfil.tags);
+        _cargando = false;
+      });
+    } on Object catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e is ApiException
+            ? e.mensaje
+            : 'No se pudo conectar con el servidor.';
+        _cargando = false;
+      });
+    }
+  }
+
+  Future<void> _guardar() async {
+    if (_nombre.text.trim().length < 2) {
+      _aviso('Ponle nombre a tu mascota.', error: true);
+      return;
+    }
+
+    if (_raza.text.trim().isEmpty) {
+      _aviso('Escribe la raza de tu mascota.', error: true);
+      return;
+    }
+
+    if (_ciudad.text.trim().isEmpty) {
+      _aviso('Escribe tu ciudad.', error: true);
+      return;
+    }
+
+    if (_intereses.isEmpty) {
+      _aviso('Elige al menos una opción en "¿Qué buscas?".', error: true);
+      return;
+    }
+
+    if (InstagramLink.limpiar(_instagram.text) == null) {
+      _aviso('Escribe tu Instagram: es como te van a contactar.', error: true);
+      return;
+    }
+
+    setState(() => _guardando = true);
+
+    try {
+      await UpaMatchService.guardarPerfil(
+        Sesion.usuarioId!,
+        Profile(
+          id: '${Sesion.usuarioId}',
+          name: _nombre.text.trim(),
+          age: _edad,
+          kind: _tipo,
+          breed: _raza.text.trim(),
+          city: _ciudad.text.trim(),
+          distanceKm: 0,
+          about: _sobreMi.text.trim(),
+          tags: _intereses.toList(),
+          instagram: _instagram.text.trim(),
+        ),
+      );
+
+      if (!mounted) return;
+      _aviso('Perfil guardado');
+    } on Object catch (e) {
+      if (!mounted) return;
+      _aviso(
+        e is ApiException ? e.mensaje : 'No se pudo conectar con el servidor.',
+        error: true,
+      );
+    } finally {
+      if (mounted) setState(() => _guardando = false);
+    }
+  }
+
+  Future<void> _cerrarSesion() async {
+    await Sesion.cerrar();
+    if (!mounted) return;
+    Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.login, (_) => false);
+  }
+
+  void _aviso(String mensaje, {bool error = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensaje),
+        backgroundColor: error ? AppColors.danger : AppColors.primary,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    const profile = MockData.currentUser;
+    if (_cargando) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(
         AppTheme.pagePadding,
         0,
         AppTheme.pagePadding,
-        16,
+        20,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const Text('Mi perfil', style: AppTextStyles.title),
+          const SizedBox(height: 16),
+          if (_error != null) ...[
+            _ErrorCard(mensaje: _error!, onReintentar: _cargar),
+            const SizedBox(height: 18),
+          ],
+          // Las fotos ya se guardan solas en Azure, no hace falta darle guardar.
+          const MisFotos(),
+          const SizedBox(height: 24),
+          const Text('Datos de mi mascota', style: AppTextStyles.sectionTitle),
+          const SizedBox(height: 12),
+          LabeledField(
+            label: '¿Cómo se llama? *',
+            child: AppTextField(controller: _nombre),
+          ),
+          const SizedBox(height: 14),
+          const Text('¿Qué mascota es?', style: AppTextStyles.fieldLabel),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Wrap(
+              spacing: 8,
+              children: [
+                for (final tipo in ProfileKind.values)
+                  PillChip.choice(
+                    label: '${tipo.emoji} ${tipo.label}',
+                    selected: tipo == _tipo,
+                    onTap: () => setState(() => _tipo = tipo),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Flexible(
-                child: Text(
-                  'Perfil',
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.title,
+              Expanded(
+                child: LabeledField(
+                  label: 'Edad',
+                  child: AppDropdownBox(
+                    value: '$_edad ${_edad == 1 ? 'año' : 'años'}',
+                    onTap: _elegirEdad,
+                  ),
                 ),
               ),
-              const Spacer(),
-              CircleIconButton(
-                icon: Icons.settings_outlined,
-                // TODO(backend): pantalla de ajustes.
-                onTap: () {},
+              const SizedBox(width: 12),
+              Expanded(
+                child: LabeledField(
+                  label: 'Raza *',
+                  child: AppTextField(controller: _raza),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          const _ProfileHeaderCard(profile: profile),
-          const SizedBox(height: 22),
-          const MisFotos(),
-          const SizedBox(height: 22),
-          const Text('Sobre mí', style: AppTextStyles.sectionTitle),
-          const SizedBox(height: 10),
-          _Card(
-            child: Text(
-              profile.about,
-              style: AppTextStyles.body.copyWith(height: 1.45),
+          const SizedBox(height: 14),
+          LabeledField(
+            label: 'Ciudad *',
+            child: AppTextField(controller: _ciudad),
+          ),
+          const SizedBox(height: 14),
+          LabeledField(
+            label: 'Sobre mí (opcional)',
+            child: AppTextField(controller: _sobreMi),
+          ),
+          const SizedBox(height: 14),
+          LabeledField(
+            label: 'Mi Instagram *',
+            child: AppTextField(
+              controller: _instagram,
+              hintText: 'https://instagram.com/tuusuario',
+              prefixIcon: Icons.alternate_email_rounded,
             ),
           ),
-          const SizedBox(height: 22),
-          const Text('Intereses', style: AppTextStyles.sectionTitle),
+          const SizedBox(height: 6),
+          const Text(
+            'Solo lo ven las mascotas con las que hagas match.',
+            style: AppTextStyles.caption,
+          ),
+          const SizedBox(height: 18),
+          const Text('¿Qué buscas? *', style: AppTextStyles.fieldLabel),
           const SizedBox(height: 10),
           Align(
             alignment: Alignment.centerLeft,
@@ -70,271 +265,95 @@ class ProfileScreen extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: [
-                for (final tag in profile.tags)
-                  PillChip.choice(label: tag, selected: true),
+                for (final opcion in MockData.lookingForOptions)
+                  PillChip.choice(
+                    label: opcion,
+                    selected: _intereses.contains(opcion),
+                    onTap: () => setState(() {
+                      if (!_intereses.remove(opcion)) _intereses.add(opcion);
+                    }),
+                  ),
               ],
             ),
           ),
-          const SizedBox(height: 22),
-          const Text('Cuenta', style: AppTextStyles.sectionTitle),
-          const SizedBox(height: 10),
-          // TODO(backend): cada fila debe abrir su pantalla real.
-          _MenuRow(
-            icon: Icons.edit_outlined,
-            label: 'Editar perfil',
-            onTap: () {},
+          const SizedBox(height: 24),
+          GradientButton(
+            label: _guardando ? 'Guardando...' : 'Guardar cambios',
+            onPressed: _guardando ? null : _guardar,
           ),
-          const SizedBox(height: 10),
-          _MenuRow(
-            icon: Icons.tune_rounded,
-            label: 'Preferencias de búsqueda',
-            onTap: () {},
-          ),
-          const SizedBox(height: 10),
-          _MenuRow(
-            icon: Icons.notifications_none_rounded,
-            label: 'Notificaciones',
-            onTap: () {},
-          ),
-          const SizedBox(height: 10),
-          _MenuRow(
-            icon: Icons.lock_outline_rounded,
-            label: 'Privacidad y seguridad',
-            onTap: () {},
-          ),
-          const SizedBox(height: 10),
-          _MenuRow(
-            icon: Icons.help_outline_rounded,
-            label: 'Ayuda',
-            onTap: () {},
-          ),
-          const SizedBox(height: 16),
-          _MenuRow(
-            icon: Icons.logout_rounded,
-            label: 'Cerrar sesión',
-            danger: true,
-            showChevron: false,
-            // TODO(backend): borrar la sesión guardada antes de salir.
-            onTap: () => Navigator.of(context).pushNamedAndRemoveUntil(
-              AppRoutes.login,
-              (route) => false,
+          const SizedBox(height: 14),
+          TextButton.icon(
+            onPressed: _cerrarSesion,
+            icon: const Icon(Icons.logout_rounded, color: AppColors.danger),
+            label: Text(
+              'Cerrar sesión',
+              style: AppTextStyles.body.copyWith(color: AppColors.danger),
             ),
           ),
         ],
       ),
     );
   }
-}
 
-class _ProfileHeaderCard extends StatelessWidget {
-  const _ProfileHeaderCard({required this.profile});
-
-  final Profile profile;
-
-  @override
-  Widget build(BuildContext context) {
-    return _Card(
-      padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
-      child: Column(
-        children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              AvatarCircle(
-                size: 96,
-                // La foto principal que esta en Azure. Si todavia no hay
-                // ninguna, AvatarCircle deja el hueco.
-                photoUrl: FotosService.urlPrincipal(ApiConfig.usuarioId),
-              ),
-              Positioned(
-                right: -2,
-                bottom: -2,
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    gradient: AppColors.primaryGradient,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.surface, width: 2.5),
-                  ),
-                  child: const Icon(
-                    Icons.photo_camera_rounded,
-                    size: 15,
-                    color: AppColors.textOnDark,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Flexible(
-                child: Text(
-                  profile.headline,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.body.copyWith(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-              ),
-              if (profile.isVerified) ...[
-                const SizedBox(width: 7),
-                Container(
-                  width: 18,
-                  height: 18,
-                  decoration: const BoxDecoration(
-                    color: AppColors.verified,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.check_rounded,
-                    size: 12,
-                    color: AppColors.textOnDark,
-                  ),
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 5),
-          Text(
-            '${profile.breed} · ${MockData.currentUserCity}',
-            textAlign: TextAlign.center,
-            style: AppTextStyles.bodyMuted,
-          ),
-          const SizedBox(height: 18),
-          const _StatsRow(),
-        ],
+  Future<void> _elegirEdad() async {
+    final elegida = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radiusSheet),
+        ),
       ),
-    );
-  }
-}
-
-class _StatsRow extends StatelessWidget {
-  const _StatsRow();
-
-  @override
-  Widget build(BuildContext context) {
-    final stats = MockData.profileStats;
-
-    return Row(
-      children: [
-        for (var i = 0; i < stats.length; i++) ...[
-          if (i > 0)
-            Container(
-              width: 1,
-              height: 30,
-              color: AppColors.border,
-            ),
-          Expanded(
-            child: Column(
-              children: [
-                Text(
-                  stats[i].value,
-                  style: AppTextStyles.body.copyWith(
-                    fontSize: 19,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.primary,
-                  ),
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          children: [
+            for (var i = 1; i <= 20; i++)
+              ListTile(
+                title: Text(
+                  '$i ${i == 1 ? 'año' : 'años'}',
+                  style: AppTextStyles.body,
                 ),
-                const SizedBox(height: 2),
-                Text(stats[i].label, style: AppTextStyles.caption),
-              ],
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _MenuRow extends StatelessWidget {
-  const _MenuRow({
-    required this.icon,
-    required this.label,
-    this.onTap,
-    this.danger = false,
-    this.showChevron = true,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
-  final bool danger;
-  final bool showChevron;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = danger ? AppColors.danger : AppColors.primary;
-
-    return Material(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: Icon(icon, size: 19, color: accent),
+                trailing: i == _edad
+                    ? const Icon(
+                        Icons.check_rounded,
+                        color: AppColors.primary,
+                        size: 20,
+                      )
+                    : null,
+                onTap: () => Navigator.of(context).pop(i),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.body.copyWith(
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w600,
-                    color: danger ? AppColors.danger : AppColors.textPrimary,
-                  ),
-                ),
-              ),
-              if (showChevron)
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  size: 22,
-                  color: AppColors.textMuted,
-                ),
-            ],
-          ),
+          ],
         ),
       ),
     );
+
+    if (elegida != null && mounted) setState(() => _edad = elegida);
   }
 }
 
-class _Card extends StatelessWidget {
-  const _Card({required this.child, this.padding = const EdgeInsets.all(16)});
+class _ErrorCard extends StatelessWidget {
+  const _ErrorCard({required this.mensaje, required this.onReintentar});
 
-  final Widget child;
-  final EdgeInsets padding;
+  final String mensaje;
+  final VoidCallback onReintentar;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: padding,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusSheet - 4),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
-      child: child,
+      child: Column(
+        children: [
+          Text(mensaje, textAlign: TextAlign.center, style: AppTextStyles.bodyMuted),
+          TextButton(onPressed: onReintentar, child: const Text('Reintentar')),
+        ],
+      ),
     );
   }
 }

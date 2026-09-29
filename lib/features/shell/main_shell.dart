@@ -2,20 +2,19 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/phone_chrome.dart';
-import '../chats/chats_screen.dart';
 import '../explore/explore_screen.dart';
-import '../likes/likes_screen.dart';
 import '../profile/profile_screen.dart';
+import '../solicitudes/solicitudes_screen.dart';
 import 'widgets/main_bottom_nav.dart';
 
-/// Contenedor de las cuatro pestañas.
+/// Contenedor de las tres pestañas.
 ///
 /// La barra de estado, la barra inferior y el home indicator viven aquí, así
 /// que cada pantalla solo se ocupa de su contenido.
 class MainShell extends StatefulWidget {
   const MainShell({super.key, this.initialIndex = 0});
 
-  /// 0 Explorar · 1 Likes · 2 Chats · 3 Perfil
+  /// 0 Buscar match · 1 Solicitudes · 2 Mi perfil
   final int initialIndex;
 
   @override
@@ -32,19 +31,16 @@ class _MainShellState extends State<MainShell> {
         children: [
           const MockStatusBar(),
           Expanded(
-            child: IndexedStack(
-              index: _index,
-              children: const [
-                ExploreScreen(),
-                LikesScreen(),
-                ChatsScreen(),
-                ProfileScreen(),
-              ],
-            ),
+            // Cada pestana se arma al entrar, asi siempre trae datos frescos
+            // (por ejemplo, un match nuevo aparece sin tener que refrescar).
+            child: switch (_index) {
+              0 => const ExploreScreen(),
+              1 => const SolicitudesScreen(),
+              _ => const ProfileScreen(),
+            },
           ),
           MainBottomNav(
             currentIndex: _index,
-            likesBadge: 3,
             onTap: (index) => setState(() => _index = index),
           ),
           const ColoredBox(

@@ -1,6 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Sin esto la app no puede hablar con la API. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <application
         android:label="upamatch"
+        android:usesCleartextTraffic="true"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

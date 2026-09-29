@@ -19,9 +19,8 @@ class MainBottomNav extends StatelessWidget {
   final int likesBadge;
 
   static const List<({IconData icon, String label})> _items = [
-    (icon: Icons.explore_outlined, label: 'Explorar'),
-    (icon: Icons.favorite_rounded, label: 'Likes'),
-    (icon: Icons.chat_bubble_rounded, label: 'Chats'),
+    (icon: Icons.pets_rounded, label: 'Buscar'),
+    (icon: Icons.favorite_rounded, label: 'Solicitudes'),
     (icon: Icons.person_rounded, label: 'Perfil'),
   ];
 
@@ -42,7 +41,7 @@ class MainBottomNav extends StatelessWidget {
                   icon: _items[i].icon,
                   label: _items[i].label,
                   selected: i == currentIndex,
-                  badge: _items[i].label == 'Likes' ? likesBadge : 0,
+                  badge: _items[i].label == 'Solicitudes' ? likesBadge : 0,
                   onTap: onTap == null ? null : () => onTap!(i),
                 ),
               ),

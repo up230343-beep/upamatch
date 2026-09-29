@@ -4,127 +4,331 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/circle_icon_button.dart';
-import '../../core/widgets/kind_badge.dart';
-import '../../core/widgets/phone_chrome.dart';
+import '../../core/widgets/gradient_button.dart';
+import '../../core/widgets/instagram_link.dart';
 import '../../core/widgets/pill_chip.dart';
+import '../../data/api/fotos_service.dart';
+import '../../data/api/sesion.dart';
+import '../../data/api/upamatch_service.dart';
+import '../../data/models/foto.dart';
 import '../../data/models/profile.dart';
-import '../../data/models/swipe_decision.dart';
-import '../explore/widgets/swipe_actions.dart';
+import '../match/match_dialog.dart';
 
-/// 08 · Detalle de perfil
+/// El perfil completo de otra mascota.
 ///
-/// Se abre con
-/// `Navigator.pushNamed(context, AppRoutes.profileDetail, arguments: profile)`
-/// y devuelve la [SwipeDecision] elegida (o `null` si solo se regresa), para
-/// que quien la abrió aplique el like / pasar.
-class ProfileDetailScreen extends StatelessWidget {
-  const ProfileDetailScreen({super.key, required this.profile});
+/// Se abre desde las solicitudes. Si ya son match se ve su Instagram; si la
+/// solicitud está pendiente, abajo salen los botones para decidir.
+class ProfileDetailScreen extends StatefulWidget {
+  const ProfileDetailScreen({
+    super.key,
+    required this.perfilId,
+    required this.esMatch,
+  });
 
-  final Profile profile;
+  final String perfilId;
+  final bool esMatch;
 
-  static const double _actionsOverlap = 32;
+  @override
+  State<ProfileDetailScreen> createState() => _ProfileDetailScreenState();
+}
+
+class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
+  Profile? _perfil;
+  List<Foto> _fotos = [];
+  bool _cargando = true;
+  bool _guardando = false;
+  String? _error;
+  late bool _esMatch = widget.esMatch;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargar();
+  }
+
+  Future<void> _cargar() async {
+    setState(() {
+      _cargando = true;
+      _error = null;
+    });
+
+    try {
+      final perfil = await UpaMatchService.perfilDe(
+        Sesion.usuarioId!,
+        widget.perfilId,
+      );
+
+      // Las fotos van por su lado, a la API de Azure.
+      final fotos = await FotosService.listar(widget.perfilId);
+
+      if (!mounted) return;
+      setState(() {
+        _perfil = perfil;
+        _fotos = fotos;
+        _cargando = false;
+      });
+    } on Object catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e is ApiException
+            ? e.mensaje
+            : 'No se pudo conectar con el servidor.';
+        _cargando = false;
+      });
+    }
+  }
+
+  /// Contesta la solicitud pendiente.
+  Future<void> _responder(bool esSi) async {
+    setState(() => _guardando = true);
+
+    try {
+      final resultado = await UpaMatchService.decidir(
+        usuarioId: Sesion.usuarioId!,
+        otroId: widget.perfilId,
+        esSi: esSi,
+      );
+
+      if (!mounted) return;
+
+      if (resultado.huboMatch && resultado.perfil != null) {
+        setState(() => _esMatch = true);
+        await mostrarMatch(context, resultado.perfil!);
+        await _cargar();
+      } else {
+        Navigator.of(context).pop();
+      }
+    } on Object catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e is ApiException ? e.mensaje : 'No se pudo guardar tu respuesta.',
+          ),
+          backgroundColor: AppColors.danger,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _guardando = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    void decide(SwipeDecision decision) => Navigator.of(context).pop(decision);
-
     return Scaffold(
-      body: Column(
-        children: [
-          const MockStatusBar(),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.only(bottom: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppTheme.pagePadding,
+                8,
+                AppTheme.pagePadding,
+                8,
+              ),
+              child: Row(
                 children: [
-                  Stack(
-                    clipBehavior: Clip.none,
-                    alignment: Alignment.bottomCenter,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          AppTheme.pagePadding,
-                          4,
-                          AppTheme.pagePadding,
-                          _actionsOverlap,
-                        ),
-                        child: _PhotoHeader(profile: profile),
-                      ),
-                      SwipeActions(
-                        onSkip: () => decide(SwipeDecision.skip),
-                        onLike: () => decide(SwipeDecision.like),
-                        onSuperLike: () => decide(SwipeDecision.superLike),
-                      ),
-                    ],
+                  CircleIconButton(
+                    icon: Icons.chevron_left_rounded,
+                    size: 40,
+                    iconSize: 24,
+                    onTap: () => Navigator.of(context).maybePop(),
                   ),
-                  const SizedBox(height: 22),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppTheme.pagePadding,
+                  const SizedBox(width: 12),
+                  Flexible(
+                    child: Text(
+                      _perfil?.name ?? 'Perfil',
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.title,
                     ),
-                    child: _Info(profile: profile),
                   ),
                 ],
               ),
             ),
+            Expanded(child: _contenido()),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _contenido() {
+    if (_cargando) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null || _perfil == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppTheme.pagePadding),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.wifi_off_rounded, color: AppColors.textMuted),
+              const SizedBox(height: 10),
+              Text(
+                _error ?? 'No se pudo cargar el perfil.',
+                textAlign: TextAlign.center,
+                style: AppTextStyles.bodyMuted,
+              ),
+              const SizedBox(height: 10),
+              TextButton(onPressed: _cargar, child: const Text('Reintentar')),
+            ],
           ),
-          const HomeIndicator(),
+        ),
+      );
+    }
+
+    final perfil = _perfil!;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(
+        AppTheme.pagePadding,
+        0,
+        AppTheme.pagePadding,
+        20,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _Fotos(perfilId: perfil.id, fotos: _fotos),
+          const SizedBox(height: 18),
+          Text(perfil.headline, style: AppTextStyles.title),
+          const SizedBox(height: 4),
+          Text(perfil.subtitle, style: AppTextStyles.bodyMuted),
+          if (perfil.about.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            const Text('Sobre mí', style: AppTextStyles.sectionTitle),
+            const SizedBox(height: 8),
+            Text(
+              perfil.about,
+              style: AppTextStyles.body.copyWith(height: 1.45),
+            ),
+          ],
+          if (perfil.tags.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            const Text('Intereses', style: AppTextStyles.sectionTitle),
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final tag in perfil.tags)
+                    PillChip.choice(label: tag, selected: true),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 22),
+          if (_esMatch)
+            _Instagram(instagram: perfil.instagram)
+          else
+            _Decidir(
+              nombre: perfil.name,
+              guardando: _guardando,
+              onSi: () => _responder(true),
+              onNo: () => _responder(false),
+            ),
         ],
       ),
     );
   }
 }
 
-class _PhotoHeader extends StatelessWidget {
-  const _PhotoHeader({required this.profile});
+/// Las fotos de la mascota, una al lado de otra.
+class _Fotos extends StatelessWidget {
+  const _Fotos({required this.perfilId, required this.fotos});
 
-  final Profile profile;
+  final String perfilId;
+  final List<Foto> fotos;
+
+  @override
+  Widget build(BuildContext context) {
+    if (fotos.isEmpty) {
+      return Container(
+        height: 260,
+        decoration: BoxDecoration(
+          gradient: AppColors.cardGradient,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Center(
+          child: Icon(
+            Icons.image_outlined,
+            size: 46,
+            color: AppColors.textOnDarkMuted,
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 260,
+      child: PageView(
+        children: [
+          for (final foto in fotos)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Image.network(
+                  foto.url,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  errorBuilder: (context, error, stack) => const ColoredBox(
+                    color: AppColors.surfaceMuted,
+                    child: Icon(
+                      Icons.broken_image_outlined,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// El Instagram, que solo aparece cuando ya son match.
+class _Instagram extends StatelessWidget {
+  const _Instagram({required this.instagram});
+
+  final String? instagram;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 360,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: AppColors.cardGradient,
-        borderRadius: BorderRadius.circular(22),
+        color: AppColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.primaryLight),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircleIconButton(
-                icon: Icons.arrow_back_rounded,
-                onTap: () => Navigator.of(context).maybePop(),
+              Icon(
+                Icons.alternate_email_rounded,
+                size: 18,
+                color: AppColors.primary,
               ),
-              const Spacer(),
-              KindBadge(kind: profile.kind),
+              SizedBox(width: 6),
+              Text('Instagram', style: AppTextStyles.sectionTitle),
             ],
           ),
-          // TODO(backend): galería con las fotos reales (`profile.photoUrl`).
-          Expanded(
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.image_outlined,
-                    size: 46,
-                    color: AppColors.textOnDarkMuted,
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Pon aquí la foto del perfil',
-                    style: AppTextStyles.bodyMuted.copyWith(
-                      color: AppColors.textOnDarkMuted,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          const SizedBox(height: 8),
+          InstagramLink(instagram: instagram),
+          const SizedBox(height: 4),
+          const Text(
+            'Tócalo para abrir su perfil de Instagram.',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.caption,
           ),
         ],
       ),
@@ -132,82 +336,41 @@ class _PhotoHeader extends StatelessWidget {
   }
 }
 
-class _Info extends StatelessWidget {
-  const _Info({required this.profile});
+/// Los botones de sí y no para contestar una solicitud pendiente.
+class _Decidir extends StatelessWidget {
+  const _Decidir({
+    required this.nombre,
+    required this.guardando,
+    required this.onSi,
+    required this.onNo,
+  });
 
-  final Profile profile;
+  final String nombre;
+  final bool guardando;
+  final VoidCallback onSi;
+  final VoidCallback onNo;
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Flexible(
-              child: Text(
-                profile.headline,
-                overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.title,
-              ),
-            ),
-            if (profile.isVerified) ...[
-              const SizedBox(width: 8),
-              Container(
-                width: 20,
-                height: 20,
-                decoration: const BoxDecoration(
-                  color: AppColors.verified,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.check_rounded,
-                  size: 13,
-                  color: AppColors.textOnDark,
-                ),
-              ),
-            ],
-          ],
+        Text(
+          '$nombre te dio un sí',
+          textAlign: TextAlign.center,
+          style: AppTextStyles.bodyMuted,
         ),
-        const SizedBox(height: 6),
-        Row(
-          children: [
-            const Icon(Icons.place_rounded, size: 16, color: AppColors.primary),
-            const SizedBox(width: 4),
-            Flexible(
-              child: Text(
-                profile.subtitle,
-                overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.bodyMuted,
-              ),
-            ),
-          ],
+        const SizedBox(height: 12),
+        GradientButton(
+          label: guardando ? 'Guardando...' : 'También me gusta',
+          onPressed: guardando ? null : onSi,
         ),
-        const SizedBox(height: 22),
-        const Text('Sobre mí', style: AppTextStyles.sectionTitle),
         const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-            border: Border.all(color: AppColors.border),
-          ),
+        TextButton(
+          onPressed: guardando ? null : onNo,
           child: Text(
-            profile.about,
-            style: AppTextStyles.body.copyWith(height: 1.45),
+            'No, gracias',
+            style: AppTextStyles.body.copyWith(color: AppColors.textMuted),
           ),
-        ),
-        const SizedBox(height: 22),
-        const Text('Intereses', style: AppTextStyles.sectionTitle),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final tag in profile.tags)
-              PillChip.choice(label: tag, selected: true),
-          ],
         ),
       ],
     );
