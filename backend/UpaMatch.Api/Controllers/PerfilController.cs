@@ -53,7 +53,7 @@ public class PerfilController(UpaMatchDbContext db) : ControllerBase
         mascota.Raza = limpio.Raza!;
         mascota.Ciudad = limpio.Ciudad!;
         mascota.Descripcion = limpio.Descripcion!;
-        mascota.Instagram = instagram;
+        mascota.Instagram = instagram!;
         mascota.ActualizadoEn = DateTime.UtcNow;
 
         mascota.Intereses.Clear();
@@ -105,6 +105,7 @@ public class PerfilController(UpaMatchDbContext db) : ControllerBase
             return $"Cada interés admite hasta {Reglas.InteresMax} caracteres.";
         if (!Reglas.TryNormalizarInstagram(d.Instagram, out instagram))
             return "El Instagram no es válido. Escribe tu usuario (@usuario) o el link.";
+        if (instagram is null) return "Escribe tu Instagram.";
 
         return null;
     }

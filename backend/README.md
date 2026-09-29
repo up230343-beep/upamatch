@@ -35,7 +35,7 @@ El script SQL idempotente (para verlo o correrlo a mano en SSMS) está en `backe
 | Tabla | Columnas | Notas |
 | --- | --- | --- |
 | **Usuarios** | Id (GUID), Correo (único, minúsculas), ContrasenaHash, CreadoEn | Una fila por usuario |
-| **Mascotas** | UsuarioId (PK/FK 1:1), Nombre, Edad, Tipo, Raza, Ciudad, Descripcion, Instagram, ActualizadoEn | Datos del perfil de mascota |
+| **Mascotas** | UsuarioId (PK/FK 1:1), Nombre, Edad, Tipo, Raza, Ciudad, Descripcion, Instagram, ActualizadoEn | Datos del perfil de mascota; Instagram es obligatorio |
 | **MascotaIntereses** | UsuarioId, Interes | Hasta 8 intereses por mascota |
 | **Likes** | DeUsuarioId, AUsuarioId, EsSuperLike, CreadoEn | Quién le dio "sí" a quién; match si A→B y B→A existen |
 
@@ -56,7 +56,7 @@ El login responde el **mismo mensaje** y **tarda lo mismo** exista o no el corre
 | POST | `/api/auth/login` | no | Autentica y devuelve sesión | 401 "Correo o contraseña incorrectos." |
 | GET | `/api/auth/yo` | sí | `{usuarioId, correo, tienePerfil}`; la app lo usa al abrir para verificar sesión viva | 401 |
 | GET | `/api/perfil` | sí | Devuelve datos de la mascota | 404 si aún no completó el paso 2 |
-| PUT | `/api/perfil` | sí | Crea o actualiza la mascota y devuelve lo guardado | 400 con el mensaje del primer error de validación |
+| PUT | `/api/perfil` | sí | Crea o actualiza la mascota (Instagram obligatorio) y devuelve lo guardado | 400 con el mensaje del primer error de validación |
 
 **Auth sí**: header `Authorization: Bearer <token>`. Los errores vienen en texto plano, listos para mostrarse.
 
@@ -71,7 +71,7 @@ Definidas en `Reglas.cs`:
 - **Raza**: 0–60 caracteres.
 - **Descripción**: 0–300 caracteres.
 - **Intereses**: máximo 8, cada uno 1–30 caracteres.
-- **Instagram**: acepta "@usuario", "usuario" o el link completo; siempre se guarda como `https://www.instagram.com/usuario`.
+- **Instagram**: obligatorio. Acepta "@usuario", "usuario" o el link completo; siempre se guarda como `https://www.instagram.com/usuario`. Error si está vacío: "Escribe tu Instagram."
 
 ## Probar a mano
 
@@ -82,6 +82,12 @@ httprepl http://localhost:5260
 ```
 
 O usar Postman / Thunder Client.
+
+## Migraciones
+
+Migraciones actuales:
+- `Inicial`: estructura base de tablas y columnas.
+- `InstagramObligatorio`: hace Instagram NOT NULL (rellena valores vacíos con '' antes de aplicar).
 
 ## Cambiar el modelo
 

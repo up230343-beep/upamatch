@@ -30,7 +30,7 @@ public class UpaMatchDbContext(DbContextOptions<UpaMatchDbContext> options) : Db
             e.Property(m => m.Raza).HasMaxLength(Reglas.RazaMax).IsRequired();
             e.Property(m => m.Ciudad).HasMaxLength(Reglas.CiudadMax).IsRequired();
             e.Property(m => m.Descripcion).HasMaxLength(Reglas.DescripcionMax).IsRequired();
-            e.Property(m => m.Instagram).HasMaxLength(200);
+            e.Property(m => m.Instagram).HasMaxLength(200).IsRequired();
             e.HasOne(m => m.Usuario)
                 .WithOne(u => u.Mascota)
                 .HasForeignKey<Mascota>(m => m.UsuarioId)

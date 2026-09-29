@@ -100,3 +100,32 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260929153948_InstagramObligatorio'
+)
+BEGIN
+    DECLARE @var nvarchar(max);
+    SELECT @var = QUOTENAME([d].[name])
+    FROM [sys].[default_constraints] [d]
+    INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
+    WHERE ([d].[parent_object_id] = OBJECT_ID(N'[Mascotas]') AND [c].[name] = N'Instagram');
+    IF @var IS NOT NULL EXEC(N'ALTER TABLE [Mascotas] DROP CONSTRAINT ' + @var + ';');
+    EXEC(N'UPDATE [Mascotas] SET [Instagram] = N'''' WHERE [Instagram] IS NULL');
+    ALTER TABLE [Mascotas] ALTER COLUMN [Instagram] nvarchar(200) NOT NULL;
+    ALTER TABLE [Mascotas] ADD DEFAULT N'' FOR [Instagram];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260929153948_InstagramObligatorio'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20260929153948_InstagramObligatorio', N'10.0.12');
+END;
+
+COMMIT;
+GO
+

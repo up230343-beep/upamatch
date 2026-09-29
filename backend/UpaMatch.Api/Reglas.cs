@@ -28,7 +28,7 @@ public static partial class Reglas
 
     /// <summary>
     /// Acepta "@usuario", "usuario" o el link completo, y siempre devuelve el
-    /// link completo. Vacío = sin Instagram (null).
+    /// link completo. Vacío devuelve null (el controlador lo marca como error).
     /// </summary>
     public static bool TryNormalizarInstagram(string? entrada, out string? link)
     {

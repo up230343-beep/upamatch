@@ -19,8 +19,11 @@ public class Mascota
 
     public string Descripcion { get; set; } = "";
 
-    /// <summary>Link completo de Instagram, o nulo si no lo puso.</summary>
-    public string? Instagram { get; set; }
+    /// <summary>
+    /// Link completo de Instagram. Obligatorio: no hay chat en la app, el
+    /// contacto después del match es por ahí.
+    /// </summary>
+    public string Instagram { get; set; } = "";
 
     public DateTime ActualizadoEn { get; set; }
 
