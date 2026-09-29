@@ -1,19 +1,24 @@
-/// Datos de conexión con la API de fotos.
+import '../session/sesion.dart';
+
+/// Datos de conexión con las APIs.
 ///
-/// Si cambias la dirección de la API, se cambia aquí y ya: ninguna pantalla
+/// Si cambias la dirección de una API, se cambia aquí y ya: ninguna pantalla
 /// escribe la URL a mano.
+///
+/// - App en Chrome, en esta misma computadora: `http://localhost:<puerto>`
+/// - Emulador de Android: `http://10.0.2.2:<puerto>` (para el emulador,
+///   `localhost` es el propio teléfono, no la computadora)
+/// - Teléfono real: `http://<ip-de-la-compu>:<puerto>` (se ve con `ipconfig`)
 abstract final class ApiConfig {
-  /// Dirección de la API de fotos.
-  ///
-  /// - App en Chrome, en esta misma computadora: `http://localhost:5250`
-  /// - Emulador de Android: `http://10.0.2.2:5250` (para el emulador,
-  ///   `localhost` es el propio teléfono, no la computadora)
-  /// - Teléfono real: `http://<ip-de-la-compu>:5250` (se ve con `ipconfig`)
+  /// API de fotos (Azure).
   static const String urlBase = 'http://localhost:5250';
 
-  /// Usuario del que se muestran y se suben las fotos.
+  /// API de cuentas y perfiles (`backend/UpaMatch.Api`).
+  static const String cuentasUrlBase = 'http://localhost:5260';
+
+  /// Usuario que inició sesión: de él se muestran y se suben las fotos.
   ///
-  /// TODO(backend): cuando haya login de verdad, esto sale de la sesión
-  /// guardada en lugar de estar fijo aquí.
-  static const String usuarioId = 'max';
+  /// Solo se usa en pantallas que están detrás del login, así que siempre hay
+  /// sesión.
+  static String get usuarioId => SesionActual.valor?.usuarioId ?? '';
 }

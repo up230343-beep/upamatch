@@ -7,8 +7,9 @@ import 'package:upamatch/features/explore/widgets/swipe_actions.dart';
 import 'package:upamatch/features/profile_detail/profile_detail_screen.dart';
 import 'package:upamatch/features/shell/main_shell.dart';
 import 'package:upamatch/features/shell/widgets/main_bottom_nav.dart';
-import 'package:upamatch/main.dart';
 import 'package:upamatch/routes/app_routes.dart';
+
+import 'helpers/api_falsa.dart';
 
 /// El mockup está hecho para un iPhone 14 (390 x 844).
 const Size _designSize = Size(390, 844);
@@ -21,37 +22,9 @@ void _usePhoneSurface(WidgetTester tester) {
 }
 
 void main() {
-  testWidgets('el login se dibuja con sus textos principales', (tester) async {
-    _usePhoneSurface(tester);
-    await tester.pumpWidget(const UpaMatchApp());
-
-    expect(find.text('UpaMatch'), findsOneWidget);
-    expect(find.text('Iniciar sesión'), findsOneWidget);
-    expect(find.text('Correo electrónico'), findsOneWidget);
-    expect(find.text('¿Olvidaste tu contraseña?'), findsOneWidget);
-    expect(find.text('¿No tienes cuenta? Regístrate'), findsOneWidget);
-  });
-
-  testWidgets('se navega de login a crear cuenta y al inicio', (tester) async {
-    _usePhoneSurface(tester);
-    await tester.pumpWidget(const UpaMatchApp());
-
-    await tester.tap(find.text('Iniciar sesión'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(CreateAccountScreen), findsOneWidget);
-    expect(find.text('Cuéntanos sobre ti'), findsOneWidget);
-    expect(find.text('Paso 2 de 5'), findsOneWidget);
-
-    await tester.ensureVisible(find.text('Continuar'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Continuar'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(MainShell), findsOneWidget);
-    expect(find.text('Max, 3'), findsOneWidget);
-    expect(find.text('Nuevos cerca de ti'), findsOneWidget);
-  });
+  // Login y registro se prueban en cuentas_test.dart. Aquí se entra ya con
+  // sesión iniciada.
+  setUp(prepararApiFalsa);
 
   testWidgets('crear cuenta permite cambiar el tipo de perfil', (tester) async {
     _usePhoneSurface(tester);

@@ -5,21 +5,88 @@ import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/avatar_circle.dart';
 import '../../core/widgets/circle_icon_button.dart';
+import '../../core/widgets/form_error.dart';
 import '../../core/widgets/pill_chip.dart';
 import '../../data/api/api_config.dart';
+import '../../data/api/cuentas_service.dart';
 import '../../data/api/fotos_service.dart';
 import '../../data/mock/mock_data.dart';
-import '../../data/models/profile.dart';
+import '../../data/models/mascota.dart';
+import '../../data/session/sesion.dart';
 import '../../routes/app_routes.dart';
 import 'widgets/mis_fotos.dart';
 
-/// 05 · Perfil
-class ProfileScreen extends StatelessWidget {
+/// 05 · Perfil: los datos reales de la mascota de quien inició sesión.
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  Mascota? _mascota;
+  bool _cargando = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargar();
+  }
+
+  Future<void> _cargar() async {
+    setState(() {
+      _cargando = true;
+      _error = null;
+    });
+
+    try {
+      final mascota = await CuentasService.obtenerPerfil();
+      if (!mounted) return;
+      if (mascota == null) {
+        // Tiene cuenta pero no terminó el registro: se manda al paso 2.
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          AppRoutes.createAccount,
+          (_) => false,
+        );
+        return;
+      }
+      setState(() {
+        _mascota = mascota;
+        _cargando = false;
+      });
+    } on SesionVencida {
+      await _cerrarSesion();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.mensaje;
+        _cargando = false;
+      });
+    }
+  }
+
+  Future<void> _editar() async {
+    final guardada = await Navigator.of(context).pushNamed(
+      AppRoutes.editProfile,
+      arguments: _mascota,
+    );
+    if (guardada is Mascota && mounted) setState(() => _mascota = guardada);
+  }
+
+  Future<void> _cerrarSesion() async {
+    await SesionActual.cerrar();
+    if (!mounted) return;
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      AppRoutes.login,
+      (route) => false,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    const profile = MockData.currentUser;
+    final mascota = _mascota;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(
@@ -49,42 +116,96 @@ class ProfileScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          const _ProfileHeaderCard(profile: profile),
-          const SizedBox(height: 22),
-          const MisFotos(),
-          const SizedBox(height: 22),
-          const Text('Sobre mí', style: AppTextStyles.sectionTitle),
-          const SizedBox(height: 10),
-          _Card(
-            child: Text(
-              profile.about,
-              style: AppTextStyles.body.copyWith(height: 1.45),
+          if (_cargando)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 60),
+              child: Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              ),
+            )
+          else if (mascota == null) ...[
+            FormError(mensaje: _error),
+            const SizedBox(height: 8),
+            Center(
+              child: TextButton(
+                onPressed: _cargar,
+                child: const Text('Reintentar', style: AppTextStyles.link),
+              ),
             ),
-          ),
-          const SizedBox(height: 22),
-          const Text('Intereses', style: AppTextStyles.sectionTitle),
-          const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final tag in profile.tags)
-                  PillChip.choice(label: tag, selected: true),
-              ],
+          ] else ...[
+            _ProfileHeaderCard(mascota: mascota),
+            const SizedBox(height: 22),
+            const MisFotos(),
+            const SizedBox(height: 22),
+            const Text('Sobre mí', style: AppTextStyles.sectionTitle),
+            const SizedBox(height: 10),
+            _Card(
+              child: Text(
+                mascota.descripcion.isEmpty
+                    ? 'Todavía no escribes nada. Tócale a "Editar perfil".'
+                    : mascota.descripcion,
+                style: mascota.descripcion.isEmpty
+                    ? AppTextStyles.bodyMuted
+                    : AppTextStyles.body.copyWith(height: 1.45),
+              ),
             ),
-          ),
+            const SizedBox(height: 22),
+            const Text('Intereses', style: AppTextStyles.sectionTitle),
+            const SizedBox(height: 10),
+            if (mascota.intereses.isEmpty)
+              const Text(
+                'Sin intereses todavía.',
+                style: AppTextStyles.bodyMuted,
+              )
+            else
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final interes in mascota.intereses)
+                      PillChip.choice(label: interes, selected: true),
+                  ],
+                ),
+              ),
+            if (mascota.instagramUsuario case final instagram?) ...[
+              const SizedBox(height: 22),
+              const Text('Instagram', style: AppTextStyles.sectionTitle),
+              const SizedBox(height: 10),
+              _Card(
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.alternate_email_rounded,
+                      size: 19,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        instagram,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.body.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
           const SizedBox(height: 22),
           const Text('Cuenta', style: AppTextStyles.sectionTitle),
           const SizedBox(height: 10),
-          // TODO(backend): cada fila debe abrir su pantalla real.
           _MenuRow(
             icon: Icons.edit_outlined,
             label: 'Editar perfil',
-            onTap: () {},
+            onTap: mascota == null ? null : _editar,
           ),
           const SizedBox(height: 10),
+          // TODO(backend): cada fila debe abrir su pantalla real.
           _MenuRow(
             icon: Icons.tune_rounded,
             label: 'Preferencias de búsqueda',
@@ -114,11 +235,7 @@ class ProfileScreen extends StatelessWidget {
             label: 'Cerrar sesión',
             danger: true,
             showChevron: false,
-            // TODO(backend): borrar la sesión guardada antes de salir.
-            onTap: () => Navigator.of(context).pushNamedAndRemoveUntil(
-              AppRoutes.login,
-              (route) => false,
-            ),
+            onTap: _cerrarSesion,
           ),
         ],
       ),
@@ -127,9 +244,9 @@ class ProfileScreen extends StatelessWidget {
 }
 
 class _ProfileHeaderCard extends StatelessWidget {
-  const _ProfileHeaderCard({required this.profile});
+  const _ProfileHeaderCard({required this.mascota});
 
-  final Profile profile;
+  final Mascota mascota;
 
   @override
   Widget build(BuildContext context) {
@@ -172,7 +289,7 @@ class _ProfileHeaderCard extends StatelessWidget {
             children: [
               Flexible(
                 child: Text(
-                  profile.headline,
+                  mascota.titulo,
                   overflow: TextOverflow.ellipsis,
                   style: AppTextStyles.body.copyWith(
                     fontSize: 22,
@@ -181,27 +298,11 @@ class _ProfileHeaderCard extends StatelessWidget {
                   ),
                 ),
               ),
-              if (profile.isVerified) ...[
-                const SizedBox(width: 7),
-                Container(
-                  width: 18,
-                  height: 18,
-                  decoration: const BoxDecoration(
-                    color: AppColors.verified,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.check_rounded,
-                    size: 12,
-                    color: AppColors.textOnDark,
-                  ),
-                ),
-              ],
             ],
           ),
           const SizedBox(height: 5),
           Text(
-            '${profile.breed} · ${MockData.currentUserCity}',
+            mascota.subtitulo,
             textAlign: TextAlign.center,
             style: AppTextStyles.bodyMuted,
           ),

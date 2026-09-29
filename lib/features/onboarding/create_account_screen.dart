@@ -5,41 +5,149 @@ import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_text_field.dart';
 import '../../core/widgets/circle_icon_button.dart';
+import '../../core/widgets/form_error.dart';
 import '../../core/widgets/gradient_button.dart';
 import '../../core/widgets/phone_chrome.dart';
 import '../../core/widgets/pill_chip.dart';
-import '../../data/mock/mock_data.dart';
+import '../../core/widgets/step_progress_bar.dart';
+import '../../data/api/cuentas_service.dart';
+import '../../data/api/fotos_service.dart' show ApiException;
+import '../../data/catalogos.dart';
+import '../../data/models/mascota.dart';
 import '../../data/models/profile.dart';
+import '../../data/session/sesion.dart';
 import '../../routes/app_routes.dart';
 
-/// 02 · Crear cuenta (paso 2 de 5)
+/// 02b · Crear cuenta — paso 2 de 2: datos de la mascota.
+///
+/// La misma pantalla sirve para "Editar perfil": si recibe [inicial], la
+/// llena con esos datos, cambia los textos y al guardar regresa con la
+/// [Mascota] guardada en lugar de ir al inicio.
 class CreateAccountScreen extends StatefulWidget {
-  const CreateAccountScreen({super.key});
+  const CreateAccountScreen({super.key, this.inicial});
 
   static const int step = 2;
-  static const int totalSteps = 5;
+  static const int totalSteps = 2;
+
+  /// Datos actuales cuando se abre desde "Editar perfil".
+  final Mascota? inicial;
+
+  bool get editando => inicial != null;
 
   @override
   State<CreateAccountScreen> createState() => _CreateAccountScreenState();
 }
 
 class _CreateAccountScreenState extends State<CreateAccountScreen> {
-  final _nameController = TextEditingController(text: 'Max');
-  final _cityController = TextEditingController(text: 'Aguascalientes');
+  late final Mascota? _inicial = widget.inicial;
 
-  ProfileKind _kind = ProfileKind.perro;
-  String _age = '3 años';
-  final Set<String> _lookingFor = {'Amistad', 'Paseos'};
+  late final _nombreController = TextEditingController(text: _inicial?.nombre);
+  late final _ciudadController = TextEditingController(text: _inicial?.ciudad);
+  late final _razaController = TextEditingController(text: _inicial?.raza);
+  late final _descripcionController =
+      TextEditingController(text: _inicial?.descripcion);
+  late final _instagramController =
+      TextEditingController(text: _inicial?.instagramUsuario);
+
+  late ProfileKind _kind = _inicial?.tipo ?? ProfileKind.perro;
+  late int? _edad = _inicial?.edad;
+  late final Set<String> _intereses = {...?_inicial?.intereses};
+
+  bool _guardando = false;
+  String? _error;
+
+  /// Los sugeridos más los que ya tenía guardados y no están en la lista.
+  List<String> get _opcionesIntereses => [
+        ...Catalogos.intereses,
+        ..._intereses.where((i) => !Catalogos.intereses.contains(i)),
+      ];
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _cityController.dispose();
+    _nombreController.dispose();
+    _ciudadController.dispose();
+    _razaController.dispose();
+    _descripcionController.dispose();
+    _instagramController.dispose();
     super.dispose();
+  }
+
+  String? _validar() {
+    if (_nombreController.text.trim().isEmpty) return 'Escribe el nombre.';
+    if (_edad == null) return 'Elige la edad.';
+    if (_ciudadController.text.trim().isEmpty) return 'Escribe la ciudad.';
+    return null;
+  }
+
+  Future<void> _guardar() async {
+    final error = _validar();
+    if (error != null) {
+      setState(() => _error = error);
+      return;
+    }
+
+    setState(() {
+      _error = null;
+      _guardando = true;
+    });
+
+    final instagram = _instagramController.text.trim();
+
+    try {
+      final guardada = await CuentasService.guardarPerfil(Mascota(
+        nombre: _nombreController.text.trim(),
+        edad: _edad!,
+        tipo: _kind,
+        raza: _razaController.text.trim(),
+        ciudad: _ciudadController.text.trim(),
+        descripcion: _descripcionController.text.trim(),
+        intereses: _intereses.toList(),
+        instagram: instagram.isEmpty ? null : instagram,
+      ));
+      if (!mounted) return;
+
+      if (widget.editando) {
+        Navigator.of(context).pop(guardada);
+      } else {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          AppRoutes.home,
+          (_) => false,
+        );
+      }
+    } on SesionVencida {
+      if (mounted) await _salir();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.mensaje;
+        _guardando = false;
+      });
+    }
+  }
+
+  /// En el registro, "atrás" cierra la sesión recién creada y vuelve al
+  /// login; al editar, solo regresa al perfil.
+  Future<void> _atras() async {
+    if (widget.editando) {
+      Navigator.of(context).maybePop();
+      return;
+    }
+    await _salir();
+  }
+
+  Future<void> _salir() async {
+    await SesionActual.cerrar();
+    if (!mounted) return;
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      AppRoutes.login,
+      (_) => false,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final editando = widget.editando;
+
     return Scaffold(
       body: Column(
         children: [
@@ -61,26 +169,32 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                         icon: Icons.chevron_left_rounded,
                         size: 40,
                         iconSize: 24,
-                        onTap: () => Navigator.of(context).maybePop(),
+                        onTap: _atras,
                       ),
                       const Spacer(),
-                      Flexible(
-                        child: Text(
-                          'Paso ${CreateAccountScreen.step} de '
-                          '${CreateAccountScreen.totalSteps}',
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTextStyles.bodyMuted,
+                      if (!editando)
+                        const Flexible(
+                          child: Text(
+                            'Paso ${CreateAccountScreen.step} de '
+                            '${CreateAccountScreen.totalSteps}',
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTextStyles.bodyMuted,
+                          ),
                         ),
-                      ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  const _StepProgressBar(
-                    step: CreateAccountScreen.step,
-                    total: CreateAccountScreen.totalSteps,
-                  ),
+                  if (!editando) ...[
+                    const SizedBox(height: 16),
+                    const StepProgressBar(
+                      step: CreateAccountScreen.step,
+                      total: CreateAccountScreen.totalSteps,
+                    ),
+                  ],
                   const SizedBox(height: 20),
-                  const Text('Cuéntanos sobre ti', style: AppTextStyles.title),
+                  Text(
+                    editando ? 'Editar perfil' : 'Cuéntanos sobre ti',
+                    style: AppTextStyles.title,
+                  ),
                   const SizedBox(height: 6),
                   const Text(
                     'Tu perfil puede ser tuyo o de tu mascota',
@@ -94,14 +208,22 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                   const SizedBox(height: 10),
                   _KindGrid(
                     selected: _kind,
-                    onChanged: (kind) => setState(() => _kind = kind),
+                    onChanged: (kind) => setState(() {
+                      _kind = kind;
+                      if (_edad != null && !_edadesPara(kind).contains(_edad)) {
+                        _edad = null;
+                      }
+                    }),
                   ),
                   const SizedBox(height: 20),
                   LabeledField(
                     label: '¿Cómo se llama?',
-                    child: AppTextField(controller: _nameController),
+                    child: AppTextField(
+                      controller: _nombreController,
+                      maxLength: 40,
+                    ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 6),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -109,7 +231,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                         child: LabeledField(
                           label: 'Edad',
                           child: AppDropdownBox(
-                            value: _age,
+                            value: _edad == null ? 'Elige' : _textoEdad(_edad!),
                             onTap: _pickAge,
                           ),
                         ),
@@ -118,13 +240,38 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       Expanded(
                         child: LabeledField(
                           label: 'Ciudad',
-                          child: AppTextField(controller: _cityController),
+                          child: AppTextField(controller: _ciudadController),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  const Text('¿Qué buscas?', style: AppTextStyles.fieldLabel),
+                  const SizedBox(height: 14),
+                  LabeledField(
+                    label: _kind == ProfileKind.persona
+                        ? 'Ocupación (opcional)'
+                        : 'Raza (opcional)',
+                    child: AppTextField(
+                      controller: _razaController,
+                      hintText: _kind == ProfileKind.persona
+                          ? 'Ej. Veterinaria'
+                          : 'Ej. Golden Retriever',
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  LabeledField(
+                    label: 'Sobre mí (opcional)',
+                    child: AppTextField(
+                      controller: _descripcionController,
+                      hintText: '¿Qué le gusta? ¿Qué busca?',
+                      maxLines: 3,
+                      maxLength: 300,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Intereses (hasta ${Catalogos.interesesMax})',
+                    style: AppTextStyles.fieldLabel,
+                  ),
                   const SizedBox(height: 10),
                   Align(
                     alignment: Alignment.centerLeft,
@@ -132,25 +279,39 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        for (final option in MockData.lookingForOptions)
+                        for (final opcion in _opcionesIntereses)
                           PillChip.choice(
-                            label: option,
-                            selected: _lookingFor.contains(option),
+                            label: opcion,
+                            selected: _intereses.contains(opcion),
                             onTap: () => setState(() {
-                              if (!_lookingFor.remove(option)) {
-                                _lookingFor.add(option);
+                              if (!_intereses.remove(opcion) &&
+                                  _intereses.length < Catalogos.interesesMax) {
+                                _intereses.add(opcion);
                               }
                             }),
                           ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 18),
+                  LabeledField(
+                    label: 'Instagram (opcional)',
+                    child: AppTextField(
+                      controller: _instagramController,
+                      hintText: '@usuario o link',
+                      prefixIcon: Icons.alternate_email_rounded,
+                      keyboardType: TextInputType.url,
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  if (_error != null) ...[
+                    FormError(mensaje: _error),
+                    const SizedBox(height: 14),
+                  ],
                   GradientButton(
-                    label: 'Continuar',
-                    // TODO(backend): guardar el paso y avanzar al paso 3.
-                    onPressed: () =>
-                        Navigator.of(context).pushNamed(AppRoutes.home),
+                    label: editando ? 'Guardar cambios' : 'Continuar',
+                    loading: _guardando,
+                    onPressed: _guardar,
                   ),
                   const SizedBox(height: 18),
                 ],
@@ -163,12 +324,20 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     );
   }
 
-  Future<void> _pickAge() async {
-    final options = <String>[
-      for (var i = 1; i <= 15; i++) '$i ${i == 1 ? 'año' : 'años'}',
-    ];
+  static List<int> _edadesPara(ProfileKind kind) => kind == ProfileKind.persona
+      ? [for (var i = 18; i <= 99; i++) i]
+      : [for (var i = 0; i <= 30; i++) i];
 
-    final picked = await showModalBottomSheet<String>(
+  static String _textoEdad(int edad) => switch (edad) {
+        0 => 'Menos de 1 año',
+        1 => '1 año',
+        _ => '$edad años',
+      };
+
+  Future<void> _pickAge() async {
+    final options = _edadesPara(_kind);
+
+    final picked = await showModalBottomSheet<int>(
       context: context,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
@@ -183,8 +352,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           children: [
             for (final option in options)
               ListTile(
-                title: Text(option, style: AppTextStyles.body),
-                trailing: option == _age
+                title: Text(_textoEdad(option), style: AppTextStyles.body),
+                trailing: option == _edad
                     ? const Icon(Icons.check_rounded,
                         color: AppColors.primary, size: 20)
                     : null,
@@ -195,39 +364,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       ),
     );
 
-    if (picked != null && mounted) setState(() => _age = picked);
-  }
-}
-
-class _StepProgressBar extends StatelessWidget {
-  const _StepProgressBar({required this.step, required this.total});
-
-  final int step;
-  final int total;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(3),
-      child: SizedBox(
-        height: 6,
-        child: Stack(
-          children: [
-            const ColoredBox(
-              color: AppColors.surfaceMuted,
-              child: SizedBox(width: double.infinity, height: 6),
-            ),
-            FractionallySizedBox(
-              widthFactor: step / total,
-              child: const DecoratedBox(
-                decoration: BoxDecoration(gradient: AppColors.primaryGradient),
-                child: SizedBox(height: 6),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    if (picked != null && mounted) setState(() => _edad = picked);
   }
 }
 

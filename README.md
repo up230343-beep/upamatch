@@ -29,18 +29,48 @@ Si la API está apagada, la app no se rompe: la galería enseña "No se pudo
 conectar con el servidor" con un botón de reintentar, y las fotos se quedan
 con su marcador.
 
-**Pendiente**: `ApiConfig.usuarioId` está fijo en `'max'` porque todavía no hay
-login. Cuando lo haya, ese valor sale de la sesión.
+`ApiConfig.usuarioId` sale de la sesión del usuario que inició sesión (ver la sección de Cuentas).
+
+## Cuentas: registro, login y perfil
+
+La API de cuentas está en `backend/` (ver `backend/README.md`). Correr:
+```bash
+cd backend/UpaMatch.Api
+dotnet run
+```
+→ `http://localhost:5260`. La app sin esa API no deja entrar: el login muestra "No se pudo conectar con el servidor."
+
+| Archivo | Qué hace |
+| --- | --- |
+| `lib/data/api/cuentas_service.dart` | Registro, login, verificar sesión válida, leer y guardar perfil |
+| `lib/data/session/sesion.dart` | Sesión guardada en el dispositivo (shared_preferences); se olvida al cerrar sesión |
+| `lib/data/models/mascota.dart` | Datos de la mascota (nombre, edad, tipo, etc.) |
+| `lib/core/validaciones.dart` | Mismas reglas que la API |
+| `lib/routes/app_routes.dart` | Rutas protegidas: sin sesión se ve el login |
+
+**Flujo**: Al abrir, si hay sesión guardada entra directo (a Inicio, o al paso 2 si no lo terminó). Si la API dice que el token ya no sirve, se borra y pide login.
+
+**Registro en 2 pasos**:
+1. Correo y contraseña.
+2. Datos de la mascota.
+
+"Editar perfil" reutiliza la pantalla del paso 2.
+
+**Importante para el equipo**: `ApiConfig.usuarioId` ya **no** es `'max'` fijo:
+ahora es el id de la cuenta que inició sesión (`SesionActual.valor!.usuarioId`,
+un GUID). Las fotos subidas con el usuario `'max'` no se verán con cuentas
+nuevas; hay que volver a subirlas desde "Mis fotos".
 
 ## Pantallas
 
 Del mockup de Figma:
 
-| Ruta            | Pantalla             | Archivo                                              |
-| --------------- | -------------------- | ---------------------------------------------------- |
-| `/`             | 01 Inicio de sesión  | `lib/features/auth/login_screen.dart`                 |
-| `/crear-cuenta` | 02 Crear cuenta      | `lib/features/onboarding/create_account_screen.dart`  |
-| `/inicio`       | 03 Explorar perfiles | `lib/features/explore/explore_screen.dart`            |
+| Ruta            | Pantalla                                          | Archivo                                              |
+| --------------- | ------------------------------------------------- | ---------------------------------------------------- |
+| `/`             | 01 Inicio de sesión                               | `lib/features/auth/login_screen.dart`                 |
+| `/registro`     | 02 Crear cuenta — paso 1 (correo y contraseña)   | `lib/features/auth/register_screen.dart`              |
+| `/crear-cuenta` | 02 Crear cuenta — paso 2 (datos de la mascota)   | `lib/features/onboarding/create_account_screen.dart`  |
+| `/inicio`       | 03 Explorar perfiles                              | `lib/features/explore/explore_screen.dart`            |
 
 Añadidas después, con el mismo estilo visual (no están en Figma):
 
@@ -52,12 +82,13 @@ Añadidas después, con el mismo estilo visual (no están en Figma):
 
 Pantallas que se abren encima del shell (ruta propia):
 
-| Ruta / cómo se abre | Pantalla              | Archivo                                                  |
-| ------------------- | --------------------- | -------------------------------------------------------- |
-| `/chat`             | 06 Detalle de chat    | `lib/features/chats/chat_detail_screen.dart`              |
-| diálogo             | 07 ¡Es un match!      | `lib/features/match/match_dialog.dart`                    |
-| `/perfil-detalle`   | 08 Detalle de perfil  | `lib/features/profile_detail/profile_detail_screen.dart`  |
-| hoja inferior       | 09 Filtros            | `lib/features/explore/widgets/filters_sheet.dart`         |
+| Ruta / cómo se abre | Pantalla                         | Archivo                                                  |
+| ------------------- | -------------------------------- | -------------------------------------------------------- |
+| `/chat`             | 06 Detalle de chat               | `lib/features/chats/chat_detail_screen.dart`              |
+| diálogo             | 07 ¡Es un match!                 | `lib/features/match/match_dialog.dart`                    |
+| `/perfil-detalle`   | 08 Detalle de perfil             | `lib/features/profile_detail/profile_detail_screen.dart`  |
+| `/editar-perfil`    | Editar perfil (reusa el paso 2)  | `lib/features/onboarding/create_account_screen.dart`      |
+| hoja inferior       | 09 Filtros                       | `lib/features/explore/widgets/filters_sheet.dart`         |
 
 Flujo sin backend: en Explorar, pasar o dar like avanza al siguiente perfil.
 Si das like a alguien que está en `MockData.likesReceived` (Luna, Sofía, Nina)
@@ -73,10 +104,11 @@ indicator los dibuja el shell, no cada pantalla.
 tarjetas moradas) y muestra un estado vacío si no hay likes. Cuando haya
 diseño, se sustituye.
 
-El botón principal del login y del registro navega a la siguiente pantalla,
-para poder recorrer el flujo completo sin backend.
+El login y el registro ya hablan con la API de cuentas (ver arriba).
 
 ## Cómo ejecutarlo
+
+Primero levanta las APIs: la de cuentas (`backend/`) y, para ver fotos, la de fotos.
 
 ```bash
 flutter pub get
@@ -96,9 +128,12 @@ flutter analyze
 flutter test
 ```
 
+Los tests corren sin servidores (usan una API falsa en `test/helpers/api_falsa.dart`).
+
 ## Estructura
 
 ```
+backend/                         API de cuentas (ASP.NET Core + SQL Server)
 lib/
 ├── main.dart                     App + MaterialApp
 ├── routes/app_routes.dart        Rutas con nombre e índices de pestaña
@@ -107,6 +142,7 @@ lib/
 │   │   ├── app_colors.dart       Paleta y degradados del mockup
 │   │   ├── app_text_styles.dart  Escala tipográfica
 │   │   └── app_theme.dart        ThemeData, radios, padding de página
+│   ├── validaciones.dart         Reglas de validación (correo, contraseña)
 │   └── widgets/                  Piezas compartidas
 │       ├── app_text_field.dart      Campo con etiqueta + caja desplegable
 │       ├── avatar_circle.dart       Avatar redondo (foto, emoji o hueco)
@@ -117,12 +153,21 @@ lib/
 │       ├── phone_chrome.dart        Barra de estado 9:41 y home indicator
 │       └── pill_chip.dart           Píldoras: filtro / selección / translúcida
 ├── data/
+│   ├── api/
+│   │   ├── api_config.dart       Dirección de las APIs (cuentas y fotos)
+│   │   ├── cuentas_service.dart  Registro, login, perfil
+│   │   └── fotos_service.dart    Listar, subir, reemplazar, eliminar fotos
 │   ├── models/
 │   │   ├── profile.dart          Profile, NearbyProfile, ProfileKind
-│   │   └── conversation.dart     Conversation
+│   │   ├── conversation.dart     Conversation
+│   │   └── mascota.dart          Datos de la mascota
+│   ├── session/
+│   │   └── sesion.dart           Sesión guardada en el dispositivo
 │   └── mock/mock_data.dart       Contenido de ejemplo
 └── features/
-    ├── auth/login_screen.dart
+    ├── auth/
+    │   ├── login_screen.dart
+    │   └── register_screen.dart
     ├── onboarding/create_account_screen.dart
     ├── shell/
     │   ├── main_shell.dart              Contenedor de las 4 pestañas
@@ -165,15 +210,15 @@ Busca `TODO(backend)` en el proyecto. Resumen:
 
 | Dónde                        | Qué falta                                                  |
 | ---------------------------- | ---------------------------------------------------------- |
-| `login_screen.dart`          | Login con correo/contraseña, login social, recuperar clave  |
-| `create_account_screen.dart` | Guardar el paso 2 del registro y avanzar al paso 3          |
+| `login_screen.dart`          | ~~Login con correo/contraseña~~ — hecho. Falta: login social, recuperar clave |
+| `create_account_screen.dart` | Hecho                                                      |
 | `explore_screen.dart`        | Cargar perfiles, aplicar el filtro, enviar like / pasar     |
 | ~~`profile_card.dart`~~      | ~~Pintar la foto real~~ — hecho, sale de la API de fotos     |
 | ~~`avatar_circle.dart`~~     | ~~Igual para los avatares~~ — hecho para el avatar del perfil |
 | `chats_screen.dart`          | Listar conversaciones, búsqueda real y abrir el detalle     |
-| `profile_screen.dart`        | Datos del usuario, contadores, ajustes y cerrar sesión      |
+| `profile_screen.dart`        | Datos y edición: hecho. Falta: contadores, ajustes          |
 | `likes_screen.dart`          | Listar a quienes dieron like                                |
-| `routes/app_routes.dart`     | Ruta inicial según haya o no sesión guardada                |
+| `routes/app_routes.dart`     | Hecho                                                      |
 | `data/mock/mock_data.dart`   | Sustituir por la respuesta del API                          |
 
 Los modelos de `lib/data/models/` (`Profile`, `NearbyProfile`, `Conversation`)
