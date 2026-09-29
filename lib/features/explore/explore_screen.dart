@@ -7,6 +7,7 @@ import '../../core/widgets/avatar_strip.dart';
 import '../../core/widgets/brand_logo.dart';
 import '../../core/widgets/circle_icon_button.dart';
 import '../../core/widgets/pill_chip.dart';
+import '../../data/mis_matches.dart';
 import '../../data/mock/mock_data.dart';
 import '../../data/models/explore_filters.dart';
 import '../../data/models/profile.dart';
@@ -41,6 +42,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     return MockData.profiles
         .where((p) =>
             !_decided.contains(p.id) &&
+            !MisMatches.instancia.contiene(p.id) &&
             (kind == null || p.kind == kind) &&
             _filters.matches(p))
         .toList();

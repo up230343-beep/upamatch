@@ -50,6 +50,9 @@ void main() {
       expect(find.text('Correo electrónico'), findsOneWidget);
       expect(find.text('¿Olvidaste tu contraseña?'), findsOneWidget);
       expect(find.text('¿No tienes cuenta? Regístrate'), findsOneWidget);
+      // Sin login con redes sociales.
+      expect(find.text('Google'), findsNothing);
+      expect(find.text('o continúa con'), findsNothing);
     });
 
     testWidgets('sin datos no deja pasar', (tester) async {
@@ -167,12 +170,23 @@ void main() {
       await _tocar(tester, find.text('2 años'));
       await tester.enterText(campos.at(1), 'León');
       await _tocar(tester, find.text('Paseos'));
+
+      // Sin Instagram no avanza: es el único contacto después del match.
+      await _tocar(tester, find.text('Continuar'));
+      expect(find.text('Escribe tu Instagram.'), findsOneWidget);
+
+      await tester.enterText(campos.at(4), 'no válido!');
+      await _tocar(tester, find.text('Continuar'));
+      expect(find.textContaining('El Instagram no es válido'), findsOneWidget);
+
+      await tester.enterText(campos.at(4), '@luna.husky');
       await _tocar(tester, find.text('Continuar'));
 
       expect(find.byType(MainShell), findsOneWidget);
       expect(perfilMax['nombre'], 'Luna');
       expect(perfilMax['edad'], 2);
       expect(perfilMax['intereses'], ['Paseos']);
+      expect(perfilMax['instagram'], 'https://www.instagram.com/luna.husky');
       expect(SesionActual.valor!.tienePerfil, isTrue);
     });
   });

@@ -1,19 +1,17 @@
 import 'package:flutter/material.dart';
 
-import '../data/models/conversation.dart';
 import '../data/models/mascota.dart';
 import '../data/models/profile.dart';
 import '../data/session/sesion.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/register_screen.dart';
-import '../features/chats/chat_detail_screen.dart';
 import '../features/onboarding/create_account_screen.dart';
 import '../features/profile_detail/profile_detail_screen.dart';
 import '../features/shell/main_shell.dart';
 
 /// Rutas con nombre de la app.
 ///
-/// Explorar, Likes, Chats y Perfil son pestañas de [MainShell]: se entra por
+/// Explorar, Likes y Perfil son pestañas de [MainShell]: se entra por
 /// [home] y se cambia con la barra inferior.
 ///
 /// Todo lo que no sea login o registro pide sesión: si no la hay (por ejemplo,
@@ -32,9 +30,6 @@ abstract final class AppRoutes {
   /// Recibe la [Mascota] actual como `arguments`; devuelve la guardada.
   static const String editProfile = '/editar-perfil';
 
-  /// Recibe la [Conversation] como `arguments` de `pushNamed`.
-  static const String chatDetail = '/chat';
-
   /// Recibe el [Profile] como `arguments`; devuelve una `SwipeDecision?`.
   static const String profileDetail = '/perfil-detalle';
 
@@ -48,8 +43,7 @@ abstract final class AppRoutes {
   /// Índices de las pestañas de [MainShell].
   static const int tabExplore = 0;
   static const int tabLikes = 1;
-  static const int tabChats = 2;
-  static const int tabProfile = 3;
+  static const int tabProfile = 2;
 
   static Map<String, WidgetBuilder> get routes => {
         login: (_) => const LoginScreen(),
@@ -59,12 +53,6 @@ abstract final class AppRoutes {
         editProfile: _conPerfil(
           (context) => CreateAccountScreen(
             inicial: ModalRoute.of(context)!.settings.arguments! as Mascota,
-          ),
-        ),
-        chatDetail: _conPerfil(
-          (context) => ChatDetailScreen(
-            conversation:
-                ModalRoute.of(context)!.settings.arguments! as Conversation,
           ),
         ),
         profileDetail: _conPerfil(

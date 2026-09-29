@@ -1,3 +1,4 @@
+import '../../core/instagram.dart';
 import 'profile.dart';
 
 /// Datos de la mascota (o persona) de quien usa la app, tal como los guarda
@@ -11,7 +12,7 @@ class Mascota {
     required this.ciudad,
     required this.descripcion,
     required this.intereses,
-    this.instagram,
+    required this.instagram,
   });
 
   final String nombre;
@@ -22,21 +23,17 @@ class Mascota {
   final String descripcion;
   final List<String> intereses;
 
-  /// Link completo (`https://www.instagram.com/usuario`) o `null`.
-  final String? instagram;
+  /// Link completo (`https://www.instagram.com/usuario`). Obligatorio: después
+  /// del match el contacto es por Instagram.
+  final String instagram;
 
   String get titulo => '$nombre, $edad';
 
   /// "Golden Retriever · Aguascalientes", o solo la ciudad si no hay raza.
   String get subtitulo => [raza, ciudad].where((s) => s.isNotEmpty).join(' · ');
 
-  /// "@usuario" a partir del link, para mostrarlo corto.
-  String? get instagramUsuario {
-    final link = instagram;
-    if (link == null) return null;
-    final partes = Uri.tryParse(link)?.pathSegments ?? const [];
-    return partes.isEmpty ? link : '@${partes.first}';
-  }
+  /// "@usuario", para mostrarlo corto.
+  String get instagramUsuario => Instagram.usuario(instagram);
 
   factory Mascota.fromJson(Map<String, dynamic> json) => Mascota(
         nombre: json['nombre'] as String,
@@ -52,7 +49,7 @@ class Mascota {
           for (final i in json['intereses'] as List<dynamic>? ?? const [])
             i as String,
         ],
-        instagram: json['instagram'] as String?,
+        instagram: json['instagram'] as String? ?? '',
       );
 
   Map<String, dynamic> toJson() => {

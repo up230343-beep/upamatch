@@ -1,6 +1,4 @@
-import '../models/conversation.dart';
 import '../models/like.dart';
-import '../models/message.dart';
 import '../models/profile.dart';
 
 /// Contenido de ejemplo copiado del mockup de Figma.
@@ -20,6 +18,7 @@ abstract final class MockData {
       about:
           'Amo correr en la playa y perseguir pelotas. Busco amigos para pasear los domingos.',
       tags: ['Juguetón', 'Ama la playa', 'Paseos'],
+      instagram: 'https://www.instagram.com/upamatch.max',
       isVerified: true,
     ),
     Profile(
@@ -32,6 +31,7 @@ abstract final class MockData {
       about:
           'Energía infinita. Busco con quién correr en el parque por las mañanas.',
       tags: ['Activa', 'Corredora', 'Sociable'],
+      instagram: 'https://www.instagram.com/upamatch.luna',
       isVerified: true,
     ),
     Profile(
@@ -44,6 +44,7 @@ abstract final class MockData {
       about:
           'Amo a los animales y los fines de semana salgo a caminar con mi perrita Coco.',
       tags: ['Senderismo', 'Café', 'Perros'],
+      instagram: 'https://www.instagram.com/upamatch.sofia',
     ),
     Profile(
       id: 'coco',
@@ -54,6 +55,7 @@ abstract final class MockData {
       distanceKm: 1,
       about: 'Experto en siestas al sol. Curioso, pero a mi ritmo.',
       tags: ['Tranquilo', 'Siestas', 'Curioso'],
+      instagram: 'https://www.instagram.com/upamatch.coco',
     ),
     Profile(
       id: 'rocky',
@@ -64,6 +66,7 @@ abstract final class MockData {
       distanceKm: 6,
       about: 'Pequeño pero con mucha personalidad. Me encantan las croquetas.',
       tags: ['Glotón', 'Cariñoso', 'Paseos cortos'],
+      instagram: 'https://www.instagram.com/upamatch.rocky',
       isVerified: true,
     ),
     Profile(
@@ -75,6 +78,7 @@ abstract final class MockData {
       distanceKm: 8,
       about: 'Tengo dos gatos y siempre ando buscando cafés pet friendly.',
       tags: ['Gatos', 'Diseño', 'Cafés'],
+      instagram: 'https://www.instagram.com/upamatch.diego',
     ),
     Profile(
       id: 'nina',
@@ -85,6 +89,7 @@ abstract final class MockData {
       distanceKm: 5,
       about: 'Peluda, elegante y un poco dramática. Busco amigos tranquilos.',
       tags: ['Elegante', 'Casera', 'Mimos'],
+      instagram: 'https://www.instagram.com/upamatch.nina',
     ),
   ];
 
@@ -106,6 +111,9 @@ abstract final class MockData {
   static bool likedYou(String profileId) =>
       likesReceived.any((like) => like.profileId == profileId);
 
+  /// Matches que ya tenías antes de abrir la app (pestaña Likes → Mis matches).
+  static const List<String> matchesIniciales = ['rocky'];
+
   /// Perfil de quien usa la app (pantalla "Perfil").
   static const Profile currentUser = Profile(
     id: 'max',
@@ -117,6 +125,7 @@ abstract final class MockData {
     about:
         'Amo correr en la playa y perseguir pelotas. Busco amigos para pasear los domingos.',
     tags: ['Juguetón', 'Ama la playa', 'Paseos', 'Amistad'],
+    instagram: 'https://www.instagram.com/upamatch.max',
     isVerified: true,
   );
 
@@ -136,83 +145,6 @@ abstract final class MockData {
     NearbyProfile(id: 'coco', name: 'Coco'),
     NearbyProfile(id: 'diego', name: 'Diego'),
   ];
-
-  /// Matches todavía sin conversación (fila superior de "Chats").
-  static const List<NearbyProfile> newMatches = [
-    NearbyProfile(id: 'nina', name: 'Nina'),
-    NearbyProfile(id: 'toby', name: 'Toby'),
-    NearbyProfile(id: 'mia', name: 'Mía'),
-    NearbyProfile(id: 'bruno', name: 'Bruno'),
-  ];
-
-  static const List<Conversation> conversations = [
-    Conversation(
-      id: 'luna',
-      name: 'Luna',
-      lastMessage: '¿Vamos al parque el domingo?',
-      time: '14:32',
-      unread: 2,
-      online: true,
-    ),
-    Conversation(
-      id: 'sofia',
-      name: 'Sofía',
-      lastMessage: 'A Coco le encantó la playa',
-      time: '12:05',
-      unread: 1,
-    ),
-    Conversation(
-      id: 'rocky',
-      name: 'Rocky',
-      lastMessage: 'Te mando la foto del paseo',
-      time: 'Ayer',
-      online: true,
-    ),
-    Conversation(
-      id: 'coco',
-      name: 'Coco',
-      lastMessage: 'Gracias por la recomendación del veterinario',
-      time: 'Ayer',
-    ),
-    Conversation(
-      id: 'diego',
-      name: 'Diego',
-      lastMessage: 'Nos vemos en la plaza a las 6',
-      time: 'Lun',
-    ),
-  ];
-
-  /// Historial de cada conversación, por `Conversation.id`.
-  ///
-  /// Las que no aparecen aquí muestran solo su último mensaje.
-  static const Map<String, List<Message>> messages = {
-    'luna': [
-      Message(
-        id: 'l1',
-        text: '¡Hola! Vi que a Max le gusta la playa',
-        time: '14:10',
-        fromMe: false,
-      ),
-      Message(
-        id: 'l2',
-        text: 'Sí, le encanta. Vamos casi cada fin de semana',
-        time: '14:12',
-        fromMe: true,
-      ),
-      Message(
-        id: 'l3',
-        text: 'Luna también es muy juguetona',
-        time: '14:30',
-        fromMe: false,
-      ),
-      Message(
-        id: 'l4',
-        text: '¿Vamos al parque el domingo?',
-        time: '14:32',
-        fromMe: false,
-      ),
-    ],
-  };
 
   /// Píldoras de Explorar y el tipo de perfil que muestra cada una
   /// (`null` = todos).

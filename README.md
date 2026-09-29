@@ -3,7 +3,7 @@
 Implementación en Flutter de las pantallas de UpaMatch, siguiendo el mockup de
 Figma (*Mockups v2 · 390 × 844 · iPhone 14*).
 
-Los textos (nombres, edades, intereses, chats) siguen viniendo de
+Los textos (nombres, edades, intereses) siguen viniendo de
 `lib/data/mock/mock_data.dart`. **Las fotos ya no**: salen de la API de fotos,
 que las guarda en Azure Blob Storage. El resto de puntos donde falta backend
 están marcados con `TODO(backend)`.
@@ -61,6 +61,19 @@ ahora es el id de la cuenta que inició sesión (`SesionActual.valor!.usuarioId`
 un GUID). Las fotos subidas con el usuario `'max'` no se verán con cuentas
 nuevas; hay que volver a subirlas desde "Mis fotos".
 
+## Contacto por Instagram (sin chat)
+
+Sin chat dentro de la app: después de hacer match, "Abrir su Instagram" abre el perfil de la otra persona
+en Instagram (usando url_launcher, que solo abre el link, sin API de Instagram).
+
+Instagram es obligatorio al registrarse o editar perfil. Se acepta "@usuario", "usuario" o
+el link completo (https://www.instagram.com/usuario), pero siempre se guarda como link.
+
+**Archivos relacionados:**
+- `lib/core/instagram.dart`: funciones `Instagram.validar` y `Instagram.usuario` (mismas reglas que la API)
+- `lib/core/abrir_instagram.dart`: función `abrirInstagram` que abre el link externamente
+- `lib/data/mis_matches.dart`: `MisMatches` (ChangeNotifier singleton) con matches actuales; mock empieza con Rocky; TODO(backend): leer de la tabla Likes
+
 ## Pantallas
 
 Del mockup de Figma:
@@ -76,26 +89,25 @@ Añadidas después, con el mismo estilo visual (no están en Figma):
 
 | Pestaña | Pantalla | Archivo                                       |
 | ------- | -------- | --------------------------------------------- |
-| Chats   | 04       | `lib/features/chats/chats_screen.dart`         |
-| Perfil  | 05       | `lib/features/profile/profile_screen.dart`     |
+| Perfil  | 04       | `lib/features/profile/profile_screen.dart`     |
 | Likes   | —        | `lib/features/likes/likes_screen.dart`         |
 
 Pantallas que se abren encima del shell (ruta propia):
 
 | Ruta / cómo se abre | Pantalla                         | Archivo                                                  |
 | ------------------- | -------------------------------- | -------------------------------------------------------- |
-| `/chat`             | 06 Detalle de chat               | `lib/features/chats/chat_detail_screen.dart`              |
-| diálogo             | 07 ¡Es un match!                 | `lib/features/match/match_dialog.dart`                    |
-| `/perfil-detalle`   | 08 Detalle de perfil             | `lib/features/profile_detail/profile_detail_screen.dart`  |
+| diálogo             | 06 ¡Es un match!                 | `lib/features/match/match_dialog.dart`                    |
+| `/perfil-detalle`   | 07 Detalle de perfil             | `lib/features/profile_detail/profile_detail_screen.dart`  |
 | `/editar-perfil`    | Editar perfil (reusa el paso 2)  | `lib/features/onboarding/create_account_screen.dart`      |
-| hoja inferior       | 09 Filtros                       | `lib/features/explore/widgets/filters_sheet.dart`         |
+| hoja inferior       | 08 Filtros                       | `lib/features/explore/widgets/filters_sheet.dart`         |
 
 Flujo sin backend: en Explorar, pasar o dar like avanza al siguiente perfil.
 Si das like a alguien que está en `MockData.likesReceived` (Luna, Sofía, Nina)
-sale el match, y "Enviar mensaje" abre su chat. La pestaña Likes lista a esos
-perfiles; al tocar uno se abre su detalle y el like de vuelta también es match.
+sale el match, con "Abrir su Instagram" que abre su perfil de Instagram. La pestaña Likes
+muestra "Mis matches" en la parte superior (cada match con botón "Instagram" para abrir su link)
+y "Les gustas" abajo; al tocar un perfil en "Les gustas" se abre su detalle.
 
-Explorar, Likes, Chats y Perfil son pestañas de `MainShell`
+Explorar, Likes y Perfil son pestañas de `MainShell`
 (`lib/features/shell/main_shell.dart`): se entra por `/inicio` y se cambia con
 la barra inferior. La barra de estado, la barra de navegación y el home
 indicator los dibuja el shell, no cada pantalla.
@@ -143,6 +155,8 @@ lib/
 │   │   ├── app_text_styles.dart  Escala tipográfica
 │   │   └── app_theme.dart        ThemeData, radios, padding de página
 │   ├── validaciones.dart         Reglas de validación (correo, contraseña)
+│   ├── instagram.dart            Validación de Instagram (Instagram.validar / Instagram.usuario)
+│   ├── abrir_instagram.dart      Abre el link de Instagram externamente
 │   └── widgets/                  Piezas compartidas
 │       ├── app_text_field.dart      Campo con etiqueta + caja desplegable
 │       ├── avatar_circle.dart       Avatar redondo (foto, emoji o hueco)
@@ -159,8 +173,8 @@ lib/
 │   │   └── fotos_service.dart    Listar, subir, reemplazar, eliminar fotos
 │   ├── models/
 │   │   ├── profile.dart          Profile, NearbyProfile, ProfileKind
-│   │   ├── conversation.dart     Conversation
 │   │   └── mascota.dart          Datos de la mascota
+│   ├── mis_matches.dart          Matches actuales (ChangeNotifier)
 │   ├── session/
 │   │   └── sesion.dart           Sesión guardada en el dispositivo
 │   └── mock/mock_data.dart       Contenido de ejemplo
@@ -178,7 +192,6 @@ lib/
     │       ├── profile_card.dart   Tarjeta grande de perfil
     │       └── swipe_actions.dart  Botones pasar / like / super like
     ├── likes/likes_screen.dart
-    ├── chats/chats_screen.dart
     └── profile/profile_screen.dart
 ```
 
@@ -210,18 +223,18 @@ Busca `TODO(backend)` en el proyecto. Resumen:
 
 | Dónde                        | Qué falta                                                  |
 | ---------------------------- | ---------------------------------------------------------- |
-| `login_screen.dart`          | ~~Login con correo/contraseña~~ — hecho. Falta: login social, recuperar clave |
+| `login_screen.dart`          | ~~Login con correo/contraseña~~ — hecho. Falta: recuperar clave |
 | `create_account_screen.dart` | Hecho                                                      |
 | `explore_screen.dart`        | Cargar perfiles, aplicar el filtro, enviar like / pasar     |
 | ~~`profile_card.dart`~~      | ~~Pintar la foto real~~ — hecho, sale de la API de fotos     |
 | ~~`avatar_circle.dart`~~     | ~~Igual para los avatares~~ — hecho para el avatar del perfil |
-| `chats_screen.dart`          | Listar conversaciones, búsqueda real y abrir el detalle     |
 | `profile_screen.dart`        | Datos y edición: hecho. Falta: contadores, ajustes          |
 | `likes_screen.dart`          | Listar a quienes dieron like                                |
+| `mis_matches.dart`           | Leer los matches reales de la tabla Likes                   |
 | `routes/app_routes.dart`     | Hecho                                                      |
 | `data/mock/mock_data.dart`   | Sustituir por la respuesta del API                          |
 
-Los modelos de `lib/data/models/` (`Profile`, `NearbyProfile`, `Conversation`)
+Los modelos de `lib/data/models/` (`Profile`, `NearbyProfile`, `Mascota`)
 ya tienen la forma que consumen las pantallas: basta con añadirles un `fromJson`
 y devolverlos desde el repositorio real en lugar de `MockData`.
 

@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../../core/abrir_instagram.dart';
+import '../../core/instagram.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/avatar_circle.dart';
+import '../../data/mis_matches.dart';
 import '../../data/mock/mock_data.dart';
-import '../../data/models/conversation.dart';
 import '../../data/models/profile.dart';
 import '../../data/models/swipe_decision.dart';
-import '../../routes/app_routes.dart';
 
 /// Aplica un like / super like / pasar y, si esa persona ya te había dado
 /// like, muestra el match.
@@ -21,6 +22,7 @@ Future<void> sendDecision(
 ) async {
   if (decision == SwipeDecision.skip) return;
   if (MockData.likedYou(profile.id)) {
+    MisMatches.instancia.agregar(profile);
     await showMatchDialog(context, profile);
   }
 }
@@ -28,10 +30,9 @@ Future<void> sendDecision(
 /// 07 · ¡Es un match!
 ///
 /// Se muestra encima de todo cuando das like a alguien que ya te había dado
-/// like. "Enviar mensaje" abre el chat con esa persona.
+/// like. No hay chat en la app: "Abrir su Instagram" abre el link de su
+/// perfil y la plática sigue por ahí.
 Future<void> showMatchDialog(BuildContext context, Profile profile) {
-  final navigator = Navigator.of(context);
-
   return showGeneralDialog<void>(
     context: context,
     barrierDismissible: false,
@@ -48,43 +49,21 @@ Future<void> showMatchDialog(BuildContext context, Profile profile) {
     ),
     pageBuilder: (dialogContext, _, _) => _MatchView(
       profile: profile,
-      onMessage: () {
-        Navigator.of(dialogContext).pop();
-        navigator.pushNamed(
-          AppRoutes.chatDetail,
-          arguments: _conversationWith(profile),
-        );
-      },
+      onInstagram: () => abrirInstagram(dialogContext, profile.instagram),
       onKeepExploring: () => Navigator.of(dialogContext).pop(),
     ),
-  );
-}
-
-/// Conversación existente con ese perfil o una nueva, vacía.
-///
-/// TODO(backend): crear la conversación en el API al hacer match.
-Conversation _conversationWith(Profile profile) {
-  for (final conversation in MockData.conversations) {
-    if (conversation.id == profile.id) return conversation;
-  }
-  return Conversation(
-    id: profile.id,
-    name: profile.name,
-    lastMessage: '',
-    time: 'Ahora',
-    photoUrl: profile.photoUrl,
   );
 }
 
 class _MatchView extends StatelessWidget {
   const _MatchView({
     required this.profile,
-    required this.onMessage,
+    required this.onInstagram,
     required this.onKeepExploring,
   });
 
   final Profile profile;
-  final VoidCallback onMessage;
+  final VoidCallback onInstagram;
   final VoidCallback onKeepExploring;
 
   @override
@@ -123,7 +102,8 @@ class _MatchView extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   'A ti y a ${profile.name} se gustaron. '
-                  '¡Salúdale!',
+                  'Escríbele por Instagram: '
+                  '${Instagram.usuario(profile.instagram)}',
                   textAlign: TextAlign.center,
                   style: AppTextStyles.body.copyWith(
                     color: AppColors.textOnDarkMuted,
@@ -177,14 +157,26 @@ class _MatchView extends StatelessWidget {
                     borderRadius: BorderRadius.circular(26),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(26),
-                      onTap: onMessage,
-                      child: Center(
-                        child: Text(
-                          'Enviar mensaje',
-                          style: AppTextStyles.button.copyWith(
+                      onTap: onInstagram,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.camera_alt_outlined,
+                            size: 20,
                             color: AppColors.primary,
                           ),
-                        ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              'Abrir su Instagram',
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.button.copyWith(
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),

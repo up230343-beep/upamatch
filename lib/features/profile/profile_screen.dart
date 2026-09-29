@@ -169,7 +169,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ],
                 ),
               ),
-            if (mascota.instagramUsuario case final instagram?) ...[
+            if (mascota.instagram.isNotEmpty) ...[
               const SizedBox(height: 22),
               const Text('Instagram', style: AppTextStyles.sectionTitle),
               const SizedBox(height: 10),
@@ -184,7 +184,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        instagram,
+                        mascota.instagramUsuario,
                         overflow: TextOverflow.ellipsis,
                         style: AppTextStyles.body.copyWith(
                           fontWeight: FontWeight.w600,

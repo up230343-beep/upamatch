@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/instagram.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
@@ -76,7 +77,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     if (_nombreController.text.trim().isEmpty) return 'Escribe el nombre.';
     if (_edad == null) return 'Elige la edad.';
     if (_ciudadController.text.trim().isEmpty) return 'Escribe la ciudad.';
-    return null;
+    return Instagram.validar(_instagramController.text);
   }
 
   Future<void> _guardar() async {
@@ -102,7 +103,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         ciudad: _ciudadController.text.trim(),
         descripcion: _descripcionController.text.trim(),
         intereses: _intereses.toList(),
-        instagram: instagram.isEmpty ? null : instagram,
+        instagram: instagram,
       ));
       if (!mounted) return;
 
@@ -295,7 +296,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                   ),
                   const SizedBox(height: 18),
                   LabeledField(
-                    label: 'Instagram (opcional)',
+                    label: 'Instagram',
                     child: AppTextField(
                       controller: _instagramController,
                       hintText: '@usuario o link',

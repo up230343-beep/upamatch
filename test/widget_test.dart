@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:upamatch/features/chats/chat_detail_screen.dart';
 import 'package:upamatch/features/onboarding/create_account_screen.dart';
 import 'package:upamatch/features/explore/widgets/swipe_actions.dart';
 import 'package:upamatch/features/profile_detail/profile_detail_screen.dart';
@@ -51,34 +50,6 @@ void main() {
     expect(find.text('Perros'), findsOneWidget);
   });
 
-  testWidgets('la barra inferior abre Chats', (tester) async {
-    _usePhoneSurface(tester);
-    await tester.pumpWidget(const MaterialApp(home: MainShell()));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byIcon(Icons.chat_bubble_rounded));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Nuevos matches'), findsOneWidget);
-    expect(find.text('Mensajes'), findsOneWidget);
-    expect(find.text('¿Vamos al parque el domingo?'), findsOneWidget);
-  });
-
-  testWidgets('la búsqueda de Chats filtra las conversaciones', (tester) async {
-    _usePhoneSurface(tester);
-    await tester.pumpWidget(const MaterialApp(home: MainShell()));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byIcon(Icons.chat_bubble_rounded));
-    await tester.pumpAndSettle();
-
-    await tester.enterText(find.byType(TextField), 'parque');
-    await tester.pumpAndSettle();
-
-    expect(find.text('¿Vamos al parque el domingo?'), findsOneWidget);
-    expect(find.text('Nos vemos en la plaza a las 6'), findsNothing);
-  });
-
   testWidgets('la barra inferior abre Perfil', (tester) async {
     _usePhoneSurface(tester);
     await tester.pumpWidget(const MaterialApp(home: MainShell()));
@@ -91,30 +62,6 @@ void main() {
     expect(find.text('Intereses'), findsOneWidget);
     expect(find.text('Editar perfil'), findsOneWidget);
     expect(find.text('Cerrar sesión'), findsOneWidget);
-  });
-
-  testWidgets('tocar una conversación abre el chat y se puede enviar', (
-    tester,
-  ) async {
-    _usePhoneSurface(tester);
-    await tester.pumpWidget(
-      MaterialApp(initialRoute: AppRoutes.home, routes: AppRoutes.routes),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byIcon(Icons.chat_bubble_rounded));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Luna'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(ChatDetailScreen), findsOneWidget);
-    expect(find.text('Luna también es muy juguetona'), findsOneWidget);
-
-    await tester.enterText(find.byType(TextField), 'El domingo a las 5');
-    await tester.tap(find.byIcon(Icons.send_rounded));
-    await tester.pumpAndSettle();
-
-    expect(find.text('El domingo a las 5'), findsOneWidget);
   });
 
   group('explorar, match, likes y filtros', () {
@@ -206,6 +153,51 @@ void main() {
 
       await tester.tap(find.text('Seguir explorando'));
       await tester.pumpAndSettle();
+      expect(find.text('A 2 perfiles les gustas'), findsOneWidget);
+    });
+
+    testWidgets('la barra inferior ya no tiene Chats', (tester) async {
+      await pumpShell(tester);
+
+      Finder enBarra(String texto) => find.descendant(
+            of: find.byType(MainBottomNav),
+            matching: find.text(texto),
+          );
+
+      expect(find.byIcon(Icons.chat_bubble_rounded), findsNothing);
+      expect(enBarra('Chats'), findsNothing);
+      for (final pestana in ['Explorar', 'Likes', 'Perfil']) {
+        expect(enBarra(pestana), findsOneWidget);
+      }
+    });
+
+    testWidgets('el match se agrega a Mis matches con su Instagram',
+        (tester) async {
+      await pumpShell(tester);
+
+      // Pasar a Max y dar like a Luna, que ya te había dado like.
+      await tester.tap(swipeButton(Icons.close_rounded));
+      await tester.pumpAndSettle();
+      await tester.tap(swipeButton(Icons.favorite_rounded));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Abrir su Instagram'), findsOneWidget);
+      expect(find.textContaining('@upamatch.luna'), findsOneWidget);
+      await tester.tap(find.text('Seguir explorando'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.descendant(
+        of: find.byType(MainBottomNav),
+        matching: find.text('Likes'),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Mis matches'), findsOneWidget);
+      expect(find.text('Luna, 2'), findsOneWidget);
+      expect(find.text('@upamatch.luna'), findsOneWidget);
+      // Rocky ya era match desde antes.
+      expect(find.text('@upamatch.rocky'), findsOneWidget);
+      // Luna ya no sale en "Les gustas".
       expect(find.text('A 2 perfiles les gustas'), findsOneWidget);
     });
 

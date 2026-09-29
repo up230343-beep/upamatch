@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../core/abrir_instagram.dart';
+import '../../core/instagram.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/avatar_circle.dart';
+import '../../data/mis_matches.dart';
 import '../../data/mock/mock_data.dart';
 import '../../data/models/like.dart';
 import '../../data/models/profile.dart';
@@ -11,9 +14,11 @@ import '../../data/models/swipe_decision.dart';
 import '../../routes/app_routes.dart';
 import '../match/match_dialog.dart';
 
-/// Pestaña "Likes": quienes dieron like a tu perfil.
+/// Pestaña "Likes": tus matches (con su Instagram) y quienes dieron like a
+/// tu perfil.
 ///
-/// Tocar una tarjeta abre su perfil; si le das like de vuelta, es match.
+/// Tocar una tarjeta abre su perfil; si le das like de vuelta, es match y
+/// pasa a "Mis matches".
 ///
 /// TODO(backend): listar los likes reales.
 class LikesScreen extends StatefulWidget {
@@ -29,7 +34,8 @@ class _LikesScreenState extends State<LikesScreen> {
 
   List<({Like like, Profile profile})> get _likes => [
     for (final like in MockData.likesReceived)
-      if (!_answered.contains(like.profileId))
+      if (!_answered.contains(like.profileId) &&
+          !MisMatches.instancia.contiene(like.profileId))
         if (MockData.profileById(like.profileId) case final profile?)
           (like: like, profile: profile),
   ];
@@ -46,47 +52,159 @@ class _LikesScreenState extends State<LikesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final likes = _likes;
+    return ListenableBuilder(
+      listenable: MisMatches.instancia,
+      builder: (context, _) {
+        final likes = _likes;
+        final matches = MisMatches.instancia.perfiles;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppTheme.pagePadding),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text(
-            'Likes',
-            overflow: TextOverflow.ellipsis,
-            style: AppTextStyles.title,
-          ),
-          if (likes.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              likes.length == 1
-                  ? 'A 1 perfil le gustas'
-                  : 'A ${likes.length} perfiles les gustas',
-              style: AppTextStyles.bodyMuted,
-            ),
-          ],
-          const SizedBox(height: 16),
-          Expanded(
-            child: likes.isEmpty
-                ? const _EmptyLikes()
-                : GridView.builder(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          mainAxisSpacing: 12,
-                          crossAxisSpacing: 12,
-                          childAspectRatio: 0.78,
-                        ),
-                    itemCount: likes.length,
-                    itemBuilder: (context, index) => _LikeCard(
-                      like: likes[index].like,
-                      profile: likes[index].profile,
-                      onTap: () => _open(likes[index].profile),
-                    ),
+        return CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppTheme.pagePadding,
+              ),
+              sliver: SliverList.list(
+                children: [
+                  const Text(
+                    'Likes',
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.title,
                   ),
+                  if (matches.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Mis matches',
+                      style: AppTextStyles.sectionTitle,
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Escríbeles por Instagram.',
+                      style: AppTextStyles.bodyMuted,
+                    ),
+                    const SizedBox(height: 12),
+                    for (final perfil in matches) ...[
+                      _MatchTile(profile: perfil),
+                      const SizedBox(height: 10),
+                    ],
+                  ],
+                  const SizedBox(height: 16),
+                  const Text('Les gustas', style: AppTextStyles.sectionTitle),
+                  if (likes.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      likes.length == 1
+                          ? 'A 1 perfil le gustas'
+                          : 'A ${likes.length} perfiles les gustas',
+                      style: AppTextStyles.bodyMuted,
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                ],
+              ),
+            ),
+            if (likes.isEmpty)
+              const SliverToBoxAdapter(child: _EmptyLikes())
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppTheme.pagePadding,
+                  0,
+                  AppTheme.pagePadding,
+                  16,
+                ),
+                sliver: SliverGrid.builder(
+                  gridDelegate:
+                      const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        mainAxisSpacing: 12,
+                        crossAxisSpacing: 12,
+                        childAspectRatio: 0.78,
+                      ),
+                  itemCount: likes.length,
+                  itemBuilder: (context, index) => _LikeCard(
+                    like: likes[index].like,
+                    profile: likes[index].profile,
+                    onTap: () => _open(likes[index].profile),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Un match: foto, nombre, su @ de Instagram y el botón para abrirlo.
+class _MatchTile extends StatelessWidget {
+  const _MatchTile({required this.profile});
+
+  final Profile profile;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          AvatarCircle(size: 48, photoUrl: profile.photoUrl),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  profile.headline,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.body.copyWith(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  Instagram.usuario(profile.instagram),
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.bodyMuted,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Material(
+            color: AppColors.surfaceMuted,
+            borderRadius: BorderRadius.circular(AppTheme.radiusField),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(AppTheme.radiusField),
+              onTap: () => abrirInstagram(context, profile.instagram),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 9,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.camera_alt_outlined,
+                      size: 17,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Instagram',
+                      style: AppTextStyles.link.copyWith(fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -204,8 +322,12 @@ class _EmptyLikes extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.pagePadding,
+        vertical: 24,
+      ),
+      child: Column(
       children: [
         Container(
           width: 92,
@@ -232,6 +354,7 @@ class _EmptyLikes extends StatelessWidget {
           style: AppTextStyles.bodyMuted,
         ),
       ],
+      ),
     );
   }
 }

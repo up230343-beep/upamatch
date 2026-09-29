@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 
-/// Barra de navegación inferior: Explorar · Likes · Chats · Perfil.
+/// Barra de navegación inferior: Explorar · Likes · Perfil.
 ///
 /// La gestiona [MainShell]; las pantallas de cada pestaña no la dibujan.
 class MainBottomNav extends StatelessWidget {
@@ -21,7 +21,6 @@ class MainBottomNav extends StatelessWidget {
   static const List<({IconData icon, String label})> _items = [
     (icon: Icons.explore_outlined, label: 'Explorar'),
     (icon: Icons.favorite_rounded, label: 'Likes'),
-    (icon: Icons.chat_bubble_rounded, label: 'Chats'),
     (icon: Icons.person_rounded, label: 'Perfil'),
   ];
 

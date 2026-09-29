@@ -3,20 +3,19 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/phone_chrome.dart';
 import '../../data/mock/mock_data.dart';
-import '../chats/chats_screen.dart';
 import '../explore/explore_screen.dart';
 import '../likes/likes_screen.dart';
 import '../profile/profile_screen.dart';
 import 'widgets/main_bottom_nav.dart';
 
-/// Contenedor de las cuatro pestañas.
+/// Contenedor de las tres pestañas.
 ///
 /// La barra de estado, la barra inferior y el home indicator viven aquí, así
 /// que cada pantalla solo se ocupa de su contenido.
 class MainShell extends StatefulWidget {
   const MainShell({super.key, this.initialIndex = 0});
 
-  /// 0 Explorar · 1 Likes · 2 Chats · 3 Perfil
+  /// 0 Explorar · 1 Likes · 2 Perfil
   final int initialIndex;
 
   @override
@@ -38,7 +37,6 @@ class _MainShellState extends State<MainShell> {
               children: const [
                 ExploreScreen(),
                 LikesScreen(),
-                ChatsScreen(),
                 ProfileScreen(),
               ],
             ),

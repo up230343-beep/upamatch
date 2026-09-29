@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:upamatch/data/api/cuentas_service.dart';
+import 'package:upamatch/data/mis_matches.dart';
 import 'package:upamatch/data/session/sesion.dart';
 
 /// Cuenta que existe en la API falsa.
@@ -104,6 +105,7 @@ Future<void> prepararApiFalsa({bool conSesion = true}) async {
   SharedPreferences.setMockInitialValues({});
   CuentasService.cliente = _apiFalsa;
   perfilMax = _perfilInicial();
+  MisMatches.instancia.reiniciar();
   if (conSesion) {
     await SesionActual.guardar(sesionConPerfil);
   } else {

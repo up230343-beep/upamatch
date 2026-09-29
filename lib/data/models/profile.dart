@@ -24,6 +24,7 @@ class Profile {
     required this.distanceKm,
     required this.about,
     required this.tags,
+    required this.instagram,
     this.photoUrl,
     this.isVerified = false,
   });
@@ -36,6 +37,9 @@ class Profile {
   final double distanceKm;
   final String about;
   final List<String> tags;
+
+  /// Link completo de su Instagram: el contacto después del match es por ahí.
+  final String instagram;
 
   /// Nula en el mockup: la tarjeta muestra el marcador "Pon aquí la foto".
   final String? photoUrl;

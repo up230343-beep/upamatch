@@ -160,10 +160,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           loading: _cargando,
                           onPressed: _entrar,
                         ),
-                        const SizedBox(height: 22),
-                        const _OrDivider(),
-                        const SizedBox(height: 18),
-                        const _SocialRow(),
                         const SizedBox(height: 28),
                         Center(
                           child: GestureDetector(
@@ -234,112 +230,6 @@ class _HeroBlobs extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _OrDivider extends StatelessWidget {
-  const _OrDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Row(
-      children: [
-        Expanded(child: Divider(color: AppColors.borderStrong, height: 1)),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12),
-          child: Text('o continúa con', style: AppTextStyles.caption),
-        ),
-        Expanded(child: Divider(color: AppColors.borderStrong, height: 1)),
-      ],
-    );
-  }
-}
-
-class _SocialRow extends StatelessWidget {
-  const _SocialRow();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Row(
-      children: [
-        Expanded(
-          child: _SocialButton(
-            label: 'Google',
-            icon: Text(
-              'G',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFFEA4335),
-              ),
-            ),
-          ),
-        ),
-        SizedBox(width: 10),
-        Expanded(
-          child: _SocialButton(
-            label: 'Apple',
-            icon: Icon(Icons.apple, size: 19, color: AppColors.textPrimary),
-          ),
-        ),
-        SizedBox(width: 10),
-        Expanded(
-          child: _SocialButton(
-            label: 'Facebook',
-            icon: Text(
-              'f',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF1877F2),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SocialButton extends StatelessWidget {
-  const _SocialButton({required this.label, required this.icon});
-
-  final String label;
-  final Widget icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(AppTheme.radiusField),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppTheme.radiusField),
-        // TODO(backend): login social.
-        onTap: () {},
-        child: Container(
-          height: 48,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppTheme.radiusField),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(width: 20, child: Center(child: icon)),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.chip.copyWith(fontSize: 12.5),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
