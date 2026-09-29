@@ -1,0 +1,44 @@
+# Pruebas a mano desde VS Code (extensión REST Client) o Visual Studio.
+@api = http://localhost:5260
+@correo = prueba@upamatch.mx
+@contrasena = secreta123
+
+### Registro (paso 1)
+POST {{api}}/api/auth/registro
+Content-Type: application/json
+
+{ "correo": "{{correo}}", "contrasena": "{{contrasena}}" }
+
+### Login — copia el "token" de la respuesta en @token
+# @name login
+POST {{api}}/api/auth/login
+Content-Type: application/json
+
+{ "correo": "{{correo}}", "contrasena": "{{contrasena}}" }
+
+###
+@token = {{login.response.body.token}}
+
+### ¿Quién soy?
+GET {{api}}/api/auth/yo
+Authorization: Bearer {{token}}
+
+### Guardar datos de la mascota (paso 2 / Editar perfil)
+PUT {{api}}/api/perfil
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombre": "Max",
+  "edad": 3,
+  "tipo": "perro",
+  "raza": "Golden Retriever",
+  "ciudad": "Aguascalientes",
+  "descripcion": "Amo correr en la playa y perseguir pelotas.",
+  "intereses": ["Juguetón", "Paseos"],
+  "instagram": "@max.golden"
+}
+
+### Ver mi perfil
+GET {{api}}/api/perfil
+Authorization: Bearer {{token}}
