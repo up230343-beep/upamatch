@@ -66,17 +66,28 @@ class AvatarCircle extends StatelessWidget {
 
   Widget _content() {
     if (photoUrl != null) {
-      return Image.network(photoUrl!, fit: BoxFit.cover);
+      return Image.network(
+        photoUrl!,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, progreso) =>
+            progreso == null ? child : _marcador(),
+        // Si el usuario todavia no tiene foto, la API responde 404: se deja
+        // el marcador en lugar del error rojo de Flutter.
+        errorBuilder: (context, error, stack) => _marcador(),
+      );
     }
     if (emoji != null) {
       return Center(
         child: Text(emoji!, style: TextStyle(fontSize: size * 0.46)),
       );
     }
-    return Icon(
-      Icons.image_outlined,
-      size: size * 0.4,
-      color: AppColors.primary,
-    );
+    return _marcador();
   }
+
+  /// El hueco de foto: se usa cuando no hay foto, mientras carga y si falla.
+  Widget _marcador() => Icon(
+        Icons.image_outlined,
+        size: size * 0.4,
+        color: AppColors.primary,
+      );
 }

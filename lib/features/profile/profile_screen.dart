@@ -6,9 +6,12 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/avatar_circle.dart';
 import '../../core/widgets/circle_icon_button.dart';
 import '../../core/widgets/pill_chip.dart';
+import '../../data/api/api_config.dart';
+import '../../data/api/fotos_service.dart';
 import '../../data/mock/mock_data.dart';
 import '../../data/models/profile.dart';
 import '../../routes/app_routes.dart';
+import 'widgets/mis_fotos.dart';
 
 /// 05 · Perfil
 class ProfileScreen extends StatelessWidget {
@@ -47,6 +50,8 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           const _ProfileHeaderCard(profile: profile),
+          const SizedBox(height: 22),
+          const MisFotos(),
           const SizedBox(height: 22),
           const Text('Sobre mí', style: AppTextStyles.sectionTitle),
           const SizedBox(height: 10),
@@ -135,7 +140,12 @@ class _ProfileHeaderCard extends StatelessWidget {
           Stack(
             clipBehavior: Clip.none,
             children: [
-              AvatarCircle(size: 96, photoUrl: profile.photoUrl),
+              AvatarCircle(
+                size: 96,
+                // La foto principal que esta en Azure. Si todavia no hay
+                // ninguna, AvatarCircle deja el hueco.
+                photoUrl: FotosService.urlPrincipal(ApiConfig.usuarioId),
+              ),
               Positioned(
                 right: -2,
                 bottom: -2,
