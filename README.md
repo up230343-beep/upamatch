@@ -3,7 +3,7 @@
 Implementación en Flutter de las pantallas de UpaMatch, siguiendo el mockup de
 Figma (*Mockups v2 · 390 × 844 · iPhone 14*).
 
-Los textos (nombres, edades, intereses, chats) siguen viniendo de
+Los textos (nombres, edades, intereses) siguen viniendo de
 `lib/data/mock/mock_data.dart`. **Las fotos ya no**: salen de la API de fotos,
 que las guarda en Azure Blob Storage. El resto de puntos donde falta backend
 están marcados con `TODO(backend)`.
@@ -29,39 +29,116 @@ Si la API está apagada, la app no se rompe: la galería enseña "No se pudo
 conectar con el servidor" con un botón de reintentar, y las fotos se quedan
 con su marcador.
 
-**Pendiente**: `ApiConfig.usuarioId` está fijo en `'max'` porque todavía no hay
-login. Cuando lo haya, ese valor sale de la sesión.
+`ApiConfig.usuarioId` sale de la sesión del usuario que inició sesión (ver la sección de Cuentas).
+
+## Cuentas: registro, login y perfil
+
+La API de cuentas está en `backend/` (ver `backend/README.md`). Correr:
+```bash
+cd backend/UpaMatch.Api
+dotnet run
+```
+→ `http://localhost:5260`. La app sin esa API no deja entrar: el login muestra "No se pudo conectar con el servidor."
+
+| Archivo | Qué hace |
+| --- | --- |
+| `lib/data/api/cuentas_service.dart` | Registro, login, verificar sesión válida, leer y guardar perfil |
+| `lib/data/session/sesion.dart` | Sesión guardada en el dispositivo (shared_preferences); se olvida al cerrar sesión |
+| `lib/data/models/mascota.dart` | Datos de la mascota (nombre, edad, tipo, etc.) |
+| `lib/core/validaciones.dart` | Mismas reglas que la API |
+| `lib/routes/app_routes.dart` | Rutas protegidas: sin sesión se ve el login |
+
+**Flujo**: Al abrir, si hay sesión guardada entra directo (a Inicio, o al paso 2 si no lo terminó). Si la API dice que el token ya no sirve, se borra y pide login.
+
+**Registro en 2 pasos**:
+1. Correo y contraseña.
+2. Datos de la mascota.
+
+"Editar perfil" reutiliza la pantalla del paso 2.
+
+**Importante para el equipo**: `ApiConfig.usuarioId` ya **no** es `'max'` fijo:
+ahora es el id de la cuenta que inició sesión (`SesionActual.valor!.usuarioId`,
+un GUID). Las fotos subidas con el usuario `'max'` no se verán con cuentas
+nuevas; hay que volver a subirlas desde "Mis fotos".
+
+## Contacto por Instagram (sin chat)
+
+Sin chat dentro de la app: después de hacer match, "Abrir su Instagram" abre el perfil de la otra persona
+en Instagram (usando url_launcher, que solo abre el link, sin API de Instagram).
+
+Instagram es obligatorio al registrarse o editar perfil. Se acepta "@usuario", "usuario" o
+el link completo (https://www.instagram.com/usuario), pero siempre se guarda como link.
+
+**Archivos relacionados:**
+- `lib/core/instagram.dart`: funciones `Instagram.validar` y `Instagram.usuario` (mismas reglas que la API)
+- `lib/core/abrir_instagram.dart`: función `abrirInstagram` que abre el link externamente
+- `lib/data/mis_solicitudes.dart`: `MisSolicitudes` (ChangeNotifier singleton) con las solicitudes pendientes y aceptadas, leídas de la API
+
+## Buscar match y solicitudes
+
+Usa la API de cuentas (`/api/match`, ver `backend/README.md`).
+
+| Archivo | Qué hace |
+| --- | --- |
+| `lib/data/api/match_service.dart` | Perfiles para buscar match, calificar (sí / no), solicitudes y el perfil de una solicitud |
+| `lib/data/models/solicitud.dart` | `Solicitud` (pendiente o aceptada). `instagram` es `null` mientras no haya match |
+| `lib/data/mis_solicitudes.dart` | `MisSolicitudes` (ChangeNotifier): las dos listas, compartidas por Explorar, la pestaña Likes y el globito de la barra |
+| `lib/features/explore/explore_screen.dart` | Buscar match: perfiles reales, sí / no pasa al siguiente y avisa cuando ya no quedan |
+| `lib/features/likes/likes_screen.dart` | Solicitudes: *Pendientes* y *Aceptadas* |
+| `lib/features/solicitudes/solicitud_detalle_screen.dart` | Perfil completo de una solicitud (fotos, datos, intereses, Instagram). En las pendientes se contesta "Sí" / "No" |
+| `lib/features/match/match_dialog.dart` | `sendDecision`: guarda la calificación y, si es match, enseña el diálogo |
+
+- Cada "sí" o "no" se guarda en la API: ese perfil ya no vuelve a salir (tampoco el tuyo).
+- Cuando dos se dan "sí", la solicitud pasa de pendiente a aceptada y a quien completó el match le sale "¡Es un match!".
+- El Instagram solo se ve en las aceptadas. **La API no lo manda** en buscar match ni en las pendientes.
 
 ## Pantallas
 
 Del mockup de Figma:
 
-| Ruta            | Pantalla             | Archivo                                              |
-| --------------- | -------------------- | ---------------------------------------------------- |
-| `/`             | 01 Inicio de sesión  | `lib/features/auth/login_screen.dart`                 |
-| `/crear-cuenta` | 02 Crear cuenta      | `lib/features/onboarding/create_account_screen.dart`  |
-| `/inicio`       | 03 Explorar perfiles | `lib/features/explore/explore_screen.dart`            |
+| Ruta            | Pantalla                                          | Archivo                                              |
+| --------------- | ------------------------------------------------- | ---------------------------------------------------- |
+| `/`             | 01 Inicio de sesión                               | `lib/features/auth/login_screen.dart`                 |
+| `/registro`     | 02 Crear cuenta — paso 1 (correo y contraseña)   | `lib/features/auth/register_screen.dart`              |
+| `/crear-cuenta` | 02 Crear cuenta — paso 2 (datos de la mascota)   | `lib/features/onboarding/create_account_screen.dart`  |
+| `/inicio`       | 03 Explorar perfiles                              | `lib/features/explore/explore_screen.dart`            |
 
 Añadidas después, con el mismo estilo visual (no están en Figma):
 
 | Pestaña | Pantalla | Archivo                                       |
 | ------- | -------- | --------------------------------------------- |
-| Chats   | 04       | `lib/features/chats/chats_screen.dart`         |
-| Perfil  | 05       | `lib/features/profile/profile_screen.dart`     |
+| Perfil  | 04       | `lib/features/profile/profile_screen.dart`     |
 | Likes   | —        | `lib/features/likes/likes_screen.dart`         |
 
-Explorar, Likes, Chats y Perfil son pestañas de `MainShell`
+Pantallas que se abren encima del shell (ruta propia):
+
+| Ruta / cómo se abre | Pantalla                         | Archivo                                                  |
+| ------------------- | -------------------------------- | -------------------------------------------------------- |
+| diálogo             | 06 ¡Es un match!                 | `lib/features/match/match_dialog.dart`                    |
+| `/perfil-detalle`   | 07 Detalle de perfil             | `lib/features/profile_detail/profile_detail_screen.dart`  |
+| `/solicitud`        | Perfil de una solicitud          | `lib/features/solicitudes/solicitud_detalle_screen.dart`  |
+| `/editar-perfil`    | Editar perfil (reusa el paso 2)  | `lib/features/onboarding/create_account_screen.dart`      |
+| hoja inferior       | 08 Filtros                       | `lib/features/explore/widgets/filters_sheet.dart`         |
+
+Flujo: en Explorar, pasar ("no") o dar like ("sí") guarda la respuesta en la API y
+avanza al siguiente perfil. Si esa persona ya te había dado "sí", sale el match con
+"Abrir su Instagram". La pestaña Likes muestra tus solicitudes en dos listas,
+*Pendientes* y *Aceptadas* (estas con botón "Instagram"); al tocar una se abre su perfil completo.
+
+Explorar, Likes y Perfil son pestañas de `MainShell`
 (`lib/features/shell/main_shell.dart`): se entra por `/inicio` y se cambia con
 la barra inferior. La barra de estado, la barra de navegación y el home
 indicator los dibuja el shell, no cada pantalla.
 
-**Likes** todavía no existe en Figma; se dejó un estado vacío con el mismo
-estilo para que la pestaña no quede muerta. Cuando haya diseño, se sustituye.
+**Likes** todavía no existe en Figma; se hizo con el mismo estilo (rejilla de
+tarjetas moradas) y muestra un estado vacío si no hay likes. Cuando haya
+diseño, se sustituye.
 
-El botón principal del login y del registro navega a la siguiente pantalla,
-para poder recorrer el flujo completo sin backend.
+El login y el registro ya hablan con la API de cuentas (ver arriba).
 
 ## Cómo ejecutarlo
+
+Primero levanta las APIs: la de cuentas (`backend/`) y, para ver fotos, la de fotos.
 
 ```bash
 flutter pub get
@@ -81,9 +158,12 @@ flutter analyze
 flutter test
 ```
 
+Los tests corren sin servidores (usan una API falsa en `test/helpers/api_falsa.dart`).
+
 ## Estructura
 
 ```
+backend/                         API de cuentas (ASP.NET Core + SQL Server)
 lib/
 ├── main.dart                     App + MaterialApp
 ├── routes/app_routes.dart        Rutas con nombre e índices de pestaña
@@ -92,6 +172,9 @@ lib/
 │   │   ├── app_colors.dart       Paleta y degradados del mockup
 │   │   ├── app_text_styles.dart  Escala tipográfica
 │   │   └── app_theme.dart        ThemeData, radios, padding de página
+│   ├── validaciones.dart         Reglas de validación (correo, contraseña)
+│   ├── instagram.dart            Validación de Instagram (Instagram.validar / Instagram.usuario)
+│   ├── abrir_instagram.dart      Abre el link de Instagram externamente
 │   └── widgets/                  Piezas compartidas
 │       ├── app_text_field.dart      Campo con etiqueta + caja desplegable
 │       ├── avatar_circle.dart       Avatar redondo (foto, emoji o hueco)
@@ -102,12 +185,23 @@ lib/
 │       ├── phone_chrome.dart        Barra de estado 9:41 y home indicator
 │       └── pill_chip.dart           Píldoras: filtro / selección / translúcida
 ├── data/
+│   ├── api/
+│   │   ├── api_config.dart       Dirección de las APIs (cuentas y fotos)
+│   │   ├── cuentas_service.dart  Registro, login, perfil
+│   │   ├── match_service.dart    Buscar match, calificar, solicitudes
+│   │   └── fotos_service.dart    Listar, subir, reemplazar, eliminar fotos
 │   ├── models/
 │   │   ├── profile.dart          Profile, NearbyProfile, ProfileKind
-│   │   └── conversation.dart     Conversation
+│   │   ├── mascota.dart          Datos de la mascota
+│   │   └── solicitud.dart        Solicitud pendiente / aceptada
+│   ├── mis_solicitudes.dart      Solicitudes pendientes y aceptadas (ChangeNotifier)
+│   ├── session/
+│   │   └── sesion.dart           Sesión guardada en el dispositivo
 │   └── mock/mock_data.dart       Contenido de ejemplo
 └── features/
-    ├── auth/login_screen.dart
+    ├── auth/
+    │   ├── login_screen.dart
+    │   └── register_screen.dart
     ├── onboarding/create_account_screen.dart
     ├── shell/
     │   ├── main_shell.dart              Contenedor de las 4 pestañas
@@ -117,13 +211,32 @@ lib/
     │   └── widgets/
     │       ├── profile_card.dart   Tarjeta grande de perfil
     │       └── swipe_actions.dart  Botones pasar / like / super like
-    ├── likes/likes_screen.dart
-    ├── chats/chats_screen.dart
+    ├── likes/likes_screen.dart           Solicitudes (pendientes / aceptadas)
+    ├── solicitudes/solicitud_detalle_screen.dart
     └── profile/profile_screen.dart
 ```
 
 Regla: ningún color ni tamaño suelto dentro de las pantallas. Todo sale de
 `AppColors`, `AppTextStyles` y `AppTheme`.
+
+## Cómo agregar una pantalla
+
+1. **Modelo** en `lib/data/models/` si la pantalla necesita datos nuevos.
+2. **Datos de ejemplo** en `MockData` (`lib/data/mock/mock_data.dart`).
+3. **Pantalla** en `lib/features/<área>/`. Solo colores, textos y medidas de
+   `AppColors`, `AppTextStyles` y `AppTheme`; reutiliza lo de `core/widgets/`.
+4. **Cómo se abre**:
+   - Pestaña → agrégala al `IndexedStack` de `MainShell` y a `MainBottomNav`.
+   - Pantalla encima → ruta en `AppRoutes` y `Navigator.pushNamed`. Si recibe
+     datos, van en `arguments`. Estas pantallas dibujan su propio
+     `MockStatusBar` y `HomeIndicator`.
+   - Hoja inferior o diálogo → una función `showXxx(context)` en el mismo
+     archivo (ver `filters_sheet.dart` y `match_dialog.dart`).
+5. **Test** en `test/widget_test.dart` y una fila en las tablas de arriba.
+
+Ojo: las rutas de `AppRoutes.routes` son `MaterialPageRoute<dynamic>`. Para
+leer lo que devuelve una pantalla usa `pushNamed(...)` y comprueba el tipo
+(`if (result is SwipeDecision)`); `pushNamed<SwipeDecision>` truena.
 
 ## Qué le toca al backend
 
@@ -131,18 +244,18 @@ Busca `TODO(backend)` en el proyecto. Resumen:
 
 | Dónde                        | Qué falta                                                  |
 | ---------------------------- | ---------------------------------------------------------- |
-| `login_screen.dart`          | Login con correo/contraseña, login social, recuperar clave  |
-| `create_account_screen.dart` | Guardar el paso 2 del registro y avanzar al paso 3          |
-| `explore_screen.dart`        | Cargar perfiles, aplicar el filtro, enviar like / pasar     |
+| `login_screen.dart`          | ~~Login con correo/contraseña~~ — hecho. Falta: recuperar clave |
+| `create_account_screen.dart` | Hecho                                                      |
+| ~~`explore_screen.dart`~~    | ~~Cargar perfiles, enviar like / pasar~~ — hecho. Falta: filtro por distancia (no hay ubicación) |
 | ~~`profile_card.dart`~~      | ~~Pintar la foto real~~ — hecho, sale de la API de fotos     |
 | ~~`avatar_circle.dart`~~     | ~~Igual para los avatares~~ — hecho para el avatar del perfil |
-| `chats_screen.dart`          | Listar conversaciones, búsqueda real y abrir el detalle     |
-| `profile_screen.dart`        | Datos del usuario, contadores, ajustes y cerrar sesión      |
-| `likes_screen.dart`          | Listar a quienes dieron like                                |
-| `routes/app_routes.dart`     | Ruta inicial según haya o no sesión guardada                |
+| `profile_screen.dart`        | Datos y edición: hecho. Falta: contadores, ajustes          |
+| ~~`likes_screen.dart`~~      | ~~Listar a quienes dieron like~~ — hecho (solicitudes)      |
+| ~~`mis_matches.dart`~~       | ~~Leer los matches reales~~ — ahora `mis_solicitudes.dart`  |
+| `routes/app_routes.dart`     | Hecho                                                      |
 | `data/mock/mock_data.dart`   | Sustituir por la respuesta del API                          |
 
-Los modelos de `lib/data/models/` (`Profile`, `NearbyProfile`, `Conversation`)
+Los modelos de `lib/data/models/` (`Profile`, `NearbyProfile`, `Mascota`)
 ya tienen la forma que consumen las pantallas: basta con añadirles un `fromJson`
 y devolverlos desde el repositorio real en lugar de `MockData`.
 

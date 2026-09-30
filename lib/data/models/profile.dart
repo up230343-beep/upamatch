@@ -28,9 +28,14 @@ class Profile {
     required this.distanceKm,
     required this.about,
     required this.tags,
+<<<<<<< HEAD
     this.instagram,
+=======
+    required this.instagram,
+>>>>>>> 5b6cbb61c6471783f4a83832a2eacacd038eb8c6
     this.photoUrl,
     this.isVerified = false,
+    this.city,
   });
 
   final String id;
@@ -43,17 +48,29 @@ class Profile {
   final String about;
   final List<String> tags;
 
+<<<<<<< HEAD
   /// Link al perfil de Instagram del dueño.
   ///
   /// La API solo lo manda cuando ya hay match: es la forma de contactarse,
   /// asi que antes del match llega nulo a proposito.
   final String? instagram;
 
+=======
+  /// Link completo de su Instagram: el contacto después del match es por ahí.
+  final String instagram;
+
+  /// Nula en el mockup: la tarjeta muestra el marcador "Pon aquí la foto".
+>>>>>>> 5b6cbb61c6471783f4a83832a2eacacd038eb8c6
   final String? photoUrl;
   final bool isVerified;
 
+  /// Ciudad. Los perfiles que vienen de la API traen ciudad en lugar de
+  /// distancia (todavía no se guarda la ubicación).
+  final String? city;
+
   String get headline => '$name, $age';
 
+<<<<<<< HEAD
   String get subtitle => '$breed · a ${distanceKm.toStringAsFixed(0)} km';
 
   factory Profile.fromJson(Map<String, dynamic> json) => Profile(
@@ -108,6 +125,11 @@ class Profile {
         photoUrl: photoUrl,
         isVerified: isVerified,
       );
+=======
+  String get subtitle => city == null
+      ? '$breed \u00B7 a ${distanceKm.toStringAsFixed(0)} km'
+      : [breed, city!].where((s) => s.isNotEmpty).join(' \u00B7 ');
+>>>>>>> 5b6cbb61c6471783f4a83832a2eacacd038eb8c6
 }
 
 /// Perfil compacto de las filas de avatares.

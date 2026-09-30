@@ -10,11 +10,15 @@ class GradientButton extends StatelessWidget {
     required this.label,
     this.onPressed,
     this.height = 52,
+    this.loading = false,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final double height;
+
+  /// Muestra un indicador en lugar del texto y no deja volver a tocarlo.
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -37,9 +41,18 @@ class GradientButton extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             borderRadius: BorderRadius.circular(height / 2),
-            onTap: onPressed,
+            onTap: loading ? null : onPressed,
             child: Center(
-              child: Text(label, style: AppTextStyles.button),
+              child: loading
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.4,
+                        color: AppColors.textOnDark,
+                      ),
+                    )
+                  : Text(label, style: AppTextStyles.button),
             ),
           ),
         ),

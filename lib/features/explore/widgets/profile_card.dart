@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../core/widgets/kind_badge.dart';
 import '../../../core/widgets/pill_chip.dart';
 import '../../../data/api/fotos_service.dart';
 import '../../../data/models/profile.dart';
@@ -76,7 +77,7 @@ class ProfileCard extends StatelessWidget {
                 children: [
                   _PhotoIndicator(count: photoCount, active: activePhoto),
                   const SizedBox(height: 12),
-                  _KindBadge(kind: profile.kind),
+                  KindBadge(kind: profile.kind),
                   const Spacer(),
                   _ProfileInfo(profile: profile),
                 ],
@@ -114,41 +115,6 @@ class _PhotoIndicator extends StatelessWidget {
           ),
         ],
       ],
-    );
-  }
-}
-
-class _KindBadge extends StatelessWidget {
-  const _KindBadge({required this.kind});
-
-  final ProfileKind kind;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(10, 6, 12, 6),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 7,
-            height: 7,
-            decoration: const BoxDecoration(
-              color: AppColors.primary,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 7),
-          Text(
-            kind.label,
-            style: AppTextStyles.chip.copyWith(fontSize: 12.5),
-          ),
-        ],
-      ),
     );
   }
 }

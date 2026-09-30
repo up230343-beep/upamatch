@@ -22,6 +22,7 @@ abstract final class AppColors {
   static const Color textSecondary = Color(0xFF706C86);
   static const Color textMuted = Color(0xFF9A96AD);
   static const Color textOnDark = Color(0xFFFFFFFF);
+  static const Color textOnDarkMuted = Color(0xE6FFFFFF);
 
   /// Blanco atenuado: para los textos secundarios sobre fondo morado u oscuro.
   static const Color textOnDarkMuted = Color(0xCCFFFFFF);

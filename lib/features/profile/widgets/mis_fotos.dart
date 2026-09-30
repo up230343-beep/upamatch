@@ -20,7 +20,11 @@ class MisFotos extends StatefulWidget {
 }
 
 class _MisFotosState extends State<MisFotos> {
+<<<<<<< HEAD
   String get _usuarioId => '${Sesion.usuarioId}';
+=======
+  static String get _usuarioId => ApiConfig.usuarioId;
+>>>>>>> 5b6cbb61c6471783f4a83832a2eacacd038eb8c6
 
   final _picker = ImagePicker();
 

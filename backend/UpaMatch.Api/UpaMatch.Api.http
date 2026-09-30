@@ -1,0 +1,74 @@
+# Pruebas a mano desde VS Code (extensión REST Client) o Visual Studio.
+@api = http://localhost:5260
+@correo = prueba@upamatch.mx
+@contrasena = secreta123
+
+### Registro (paso 1)
+POST {{api}}/api/auth/registro
+Content-Type: application/json
+
+{ "correo": "{{correo}}", "contrasena": "{{contrasena}}" }
+
+### Login — copia el "token" de la respuesta en @token
+# @name login
+POST {{api}}/api/auth/login
+Content-Type: application/json
+
+{ "correo": "{{correo}}", "contrasena": "{{contrasena}}" }
+
+###
+@token = {{login.response.body.token}}
+
+### ¿Quién soy?
+GET {{api}}/api/auth/yo
+Authorization: Bearer {{token}}
+
+### Guardar datos de la mascota (paso 2 / Editar perfil)
+PUT {{api}}/api/perfil
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombre": "Max",
+  "edad": 3,
+  "tipo": "perro",
+  "raza": "Golden Retriever",
+  "ciudad": "Aguascalientes",
+  "descripcion": "Amo correr en la playa y perseguir pelotas.",
+  "intereses": ["Juguetón", "Paseos"],
+  "instagram": "@max.golden"
+}
+
+### Ver mi perfil
+GET {{api}}/api/perfil
+Authorization: Bearer {{token}}
+
+### Buscar match: perfiles que no has calificado (sin Instagram)
+GET {{api}}/api/match/perfiles?limite=20
+Authorization: Bearer {{token}}
+
+### Buscar match: solo perros de 1 a 5 años
+GET {{api}}/api/match/perfiles?tipo=perro&edadMin=1&edadMax=5
+Authorization: Bearer {{token}}
+
+### Calificar: "sí" (pon el usuarioId de un perfil de la lista)
+POST {{api}}/api/match/calificar
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "usuarioId": "00000000-0000-0000-0000-000000000000", "si": true }
+
+### Calificar: "no"
+POST {{api}}/api/match/calificar
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "usuarioId": "00000000-0000-0000-0000-000000000000", "si": false }
+
+### Solicitudes: pendientes (sin Instagram) y aceptadas (con Instagram)
+GET {{api}}/api/match/solicitudes
+Authorization: Bearer {{token}}
+
+### Perfil completo de una solicitud
+GET {{api}}/api/match/solicitudes/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{token}}
